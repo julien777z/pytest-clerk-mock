@@ -16,15 +16,10 @@ from pytest_mock_clerk.plugin import (
     mock_clerk,
     mock_clerk_backend,
 )
-from pytest_mock_clerk.services.users import (
-    DuplicateEmailError,
-    MockListResponse,
-    UserNotFoundError,
-)
+from pytest_mock_clerk.services.users import MockListResponse, UserNotFoundError
 
 __all__ = [
     "create_mock_clerk_fixture",
-    "DuplicateEmailError",
     "mock_clerk",
     "mock_clerk_backend",
     "mock_clerk_user_creation",

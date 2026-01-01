@@ -2,7 +2,7 @@ import pytest
 from clerk_backend_api.models import ClerkErrors
 
 from pytest_mock_clerk.client import MockClerkClient
-from pytest_mock_clerk.services.users import DuplicateEmailError, UserNotFoundError
+from pytest_mock_clerk.services.users import UserNotFoundError
 
 
 class TestUserCreate:

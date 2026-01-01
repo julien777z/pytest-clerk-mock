@@ -24,18 +24,6 @@ class UserNotFoundError(Exception):
         super().__init__(f"User not found: {user_id}")
 
 
-class DuplicateEmailError(Exception):
-    """Raised when attempting to create a user with an existing email.
-
-    Note: This is kept for backwards compatibility. The mock now raises
-    ClerkErrors by default, which matches the real Clerk API behavior.
-    """
-
-    def __init__(self, email: str) -> None:
-        self.email = email
-        super().__init__(f"Email already exists: {email}")
-
-
 class MockListResponse(BaseModel):
     """Response wrapper for list operations, matching Clerk SDK structure."""
 
@@ -73,18 +61,10 @@ def _create_email_exists_error(email: str) -> ClerkErrors:
 class MockUsersClient:
     """Mock implementation of Clerk's Users API."""
 
-    def __init__(self, raise_clerk_errors: bool = True) -> None:
-        """Initialize the mock users client.
-
-        Args:
-            raise_clerk_errors: If True (default), raises ClerkErrors for duplicate
-                emails. If False, raises DuplicateEmailError for backwards compatibility.
-        """
-
+    def __init__(self) -> None:
         self._users: dict[str, MockUser] = {}
         self._emails: dict[str, str] = {}
         self._memberships: dict[str, MockOrganizationMembershipsResponse] = {}
-        self._raise_clerk_errors = raise_clerk_errors
 
     def reset(self) -> None:
         """Clear all stored users and email mappings."""
@@ -117,10 +97,7 @@ class MockUsersClient:
         if email_address:
             for email in email_address:
                 if email.lower() in self._emails:
-                    if self._raise_clerk_errors:
-                        raise _create_email_exists_error(email)
-                    else:
-                        raise DuplicateEmailError(email)
+                    raise _create_email_exists_error(email)
 
         user_id = _generate_id("user")
         email_objects: list[MockEmailAddress] = []
