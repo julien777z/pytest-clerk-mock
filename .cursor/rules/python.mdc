@@ -1,0 +1,64 @@
+---
+alwaysApply: true
+---
+
+# Python Conventions
+
+## Modern Syntax
+
+- Use modern type hints: `str | None` instead of `Optional[str]`
+- Use built-in generics: `list[T]`, `dict[K, V]` instead of `List[T]`, `Dict[K, V]`
+- Use `Self` from `typing` for class method return types
+- Use `collections.abc` for abstract types: `Callable`, `Iterable`, etc.
+
+## Date & Time
+
+- Prefer `datetime` objects for representing time in application logic
+- Use `timedelta` for durations instead of raw integers (e.g., `timedelta(seconds=10)` instead of `10`)
+- Unix timestamps (integers) are acceptable when matching external API contracts (e.g., Clerk API)
+
+## Imports
+
+- Keep ALL imports at the top of the file
+- Never import inside functions, methods, or test cases
+- Group imports: stdlib, third-party, local (separated by blank lines)
+- Use `__all__` exports in module `__init__.py` files
+
+## Constants
+
+- Define constants at the top of the file, after imports
+- Use `Final[T]` type annotation from `typing` for constants
+- Use UPPER_SNAKE_CASE naming convention for constants
+- Never use literal values inline; extract them to named constants at the top of the file (e.g., `SAMPLE_DATA_DIR: Final[str] = "sample_data"` instead of using `"sample_data"` directly in code)
+
+## Formatting
+
+- Add a blank line after each docstring
+- Add a blank line after multi-line statements (function calls, context managers, etc.) before the next statement
+- Add a blank line before terminating statements (`sys.exit()`, `return`, `raise`) to visually separate them from preceding code
+- Add blank lines between logically unrelated code, but for short/compact blocks (2-3 lines), the separation is not needed
+
+```python
+# Good: blank line separates the table block from the next print
+table = Table()
+table.add_column("Field")
+table.add_row("Value")
+console.print(table)
+
+console.print(Panel("Next section"))
+
+# Bad: no separation between logical blocks
+table = Table()
+table.add_column("Field")
+table.add_row("Value")
+console.print(table)
+console.print(Panel("Next section"))
+```
+- Add a blank line before multi-line assert statements
+- Do NOT put docstrings at the top of files (no module-level docstrings)
+
+## Docstrings
+
+- Use Google-style docstrings with Args, Returns, Raises sections
+- Keep docstrings concise; only document non-obvious behavior
+- Class docstrings go directly after the class definition

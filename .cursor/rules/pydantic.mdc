@@ -1,0 +1,40 @@
+---
+alwaysApply: true
+---
+
+# Pydantic Conventions
+
+## Prefer Pydantic Over Dataclasses
+
+- Never use `@dataclass` decorator from `dataclasses` module
+- Use Pydantic `BaseModel` for all class definitions that hold data
+- Pydantic provides validation, serialization, and type coercion out of the box
+
+## Pydantic V2
+
+- Use `model_config = ConfigDict(...)` for model configuration
+- Use `model_dump()` instead of deprecated `dict()`
+- Use `model_validator` decorator for custom validation
+- Use `Self` from `typing` for class method return types
+
+## Base Classes
+
+- Use `BaseModel` from `pydantic` for all models
+
+## Factory Methods
+
+- Use `create()` class methods as factory constructors when initialization logic is needed
+- Use `Self` return type for class methods
+
+```python
+class MockEmailAddress(BaseModel):
+    id: str
+    email_address: str
+
+    @classmethod
+    def create(cls, email: str, email_id: str) -> Self:
+        return cls(
+            id=email_id,
+            email_address=email,
+        )
+```
