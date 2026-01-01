@@ -1,17 +1,17 @@
-# pytest-mock-clerk
+# pytest-clerk-mock
 
 A pytest plugin for mocking [Clerk](https://clerk.com/) authentication in your tests.
 
 ## Installation
 
 ```bash
-pip install pytest-mock-clerk
+pip install pytest-clerk-mock
 ```
 
 Or with Poetry:
 
 ```bash
-poetry add --group dev pytest-mock-clerk
+poetry add --group dev pytest-clerk-mock
 ```
 
 ## Usage
