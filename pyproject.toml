@@ -1,6 +1,6 @@
 [project]
 name = "pytest-clerk-mock"
-version = "0.1.0"
+version = "0.0.1"
 description = "A pytest plugin for mocking Clerk authentication"
 authors = [
     { name = "Julien Kmec", email = "me@julien.dev" },
@@ -21,6 +21,7 @@ packages = [{include = "pytest_mock_clerk", from = "src"}]
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 pytest-asyncio = "^0.24.0"
+pytest-cov = "^6.0.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
