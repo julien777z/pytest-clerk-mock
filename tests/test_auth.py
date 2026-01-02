@@ -1,5 +1,5 @@
 import pytest
-from clerk_backend_api.models import ClerkErrors
+from clerk_backend_api.models import ClerkErrors, GetUserListRequest
 
 from pytest_clerk_mock import (
     MockAuthResult,
@@ -287,21 +287,19 @@ class TestClerkErrorsOnDuplicateEmail:
 
 
 class TestListAsyncResponse:
-    """Tests for list_async response wrapper."""
+    """Tests for list_async response."""
 
-    async def test_list_async_returns_response_with_data(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
-        """list_async returns response with .data attribute."""
+    async def test_list_async_returns_list(self, mock_clerk: MockClerkClient) -> None:
+        """list_async returns a list of users."""
 
         await mock_clerk.users.create_async(email_address=["user1@example.com"])
         await mock_clerk.users.create_async(email_address=["user2@example.com"])
 
         response = await mock_clerk.users.list_async()
 
-        assert hasattr(response, "data")
-        assert len(response.data) == 2
-        assert response.data[0].email_addresses[0].email_address in [
+        assert isinstance(response, list)
+        assert len(response) == 2
+        assert response[0].email_addresses[0].email_address in [
             "user1@example.com",
             "user2@example.com",
         ]
@@ -309,26 +307,23 @@ class TestListAsyncResponse:
     async def test_list_async_filter_by_email(
         self, mock_clerk: MockClerkClient
     ) -> None:
-        """list_async with email filter returns wrapped response."""
+        """list_async with email filter returns filtered list."""
 
         await mock_clerk.users.create_async(email_address=["target@example.com"])
         await mock_clerk.users.create_async(email_address=["other@example.com"])
 
-        response = await mock_clerk.users.list_async(
-            email_address=["target@example.com"]
-        )
+        request = GetUserListRequest(email_address=["target@example.com"])
+        response = await mock_clerk.users.list_async(request=request)
 
-        assert len(response.data) == 1
-        assert response.data[0].email_addresses[0].email_address == "target@example.com"
+        assert len(response) == 1
+        assert response[0].email_addresses[0].email_address == "target@example.com"
 
-    async def test_list_async_empty_response(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
-        """list_async returns empty .data for no results."""
+    async def test_list_async_empty_response(self, mock_clerk: MockClerkClient) -> None:
+        """list_async returns empty list for no results."""
 
         response = await mock_clerk.users.list_async()
 
-        assert response.data == []
+        assert response == []
 
 
 class TestClientReset:
@@ -363,4 +358,3 @@ class TestClientReset:
         # Memberships are stored on client, not visible via users
         # This ensures the internal state is cleared
         assert mock_clerk._memberships == {}
-

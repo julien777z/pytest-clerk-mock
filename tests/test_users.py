@@ -1,5 +1,5 @@
 import pytest
-from clerk_backend_api.models import ClerkErrors
+from clerk_backend_api.models import ClerkErrors, GetUserListRequest
 
 from pytest_clerk_mock.client import MockClerkClient
 from pytest_clerk_mock.services.users import UserNotFoundError
@@ -385,7 +385,7 @@ class TestAsyncAPI:
             first_name="John",
         )
 
-        fetched = await mock_clerk.users.get_async(created.id)
+        fetched = await mock_clerk.users.get_async(user_id=created.id)
 
         assert fetched.id == created.id
         assert fetched.first_name == "John"
@@ -394,28 +394,29 @@ class TestAsyncAPI:
         """Async get raises for nonexistent user."""
 
         with pytest.raises(UserNotFoundError):
-            await mock_clerk.users.get_async("user_nonexistent")
+            await mock_clerk.users.get_async(user_id="user_nonexistent")
 
     async def test_list_async(self, mock_clerk: MockClerkClient) -> None:
-        """Async list returns response with .data attribute."""
+        """Async list returns a list of users."""
 
         await mock_clerk.users.create_async(email_address=["user1@example.com"])
         await mock_clerk.users.create_async(email_address=["user2@example.com"])
 
         response = await mock_clerk.users.list_async()
 
-        assert len(response.data) == 2
+        assert len(response) == 2
 
     async def test_list_async_with_filter(self, mock_clerk: MockClerkClient) -> None:
-        """Async list respects filters."""
+        """Async list respects filters via request object."""
 
         await mock_clerk.users.create_async(email_address=["user1@example.com"])
         user2 = await mock_clerk.users.create_async(email_address=["user2@example.com"])
 
-        response = await mock_clerk.users.list_async(email_address=["user2@example.com"])
+        request = GetUserListRequest(email_address=["user2@example.com"])
+        response = await mock_clerk.users.list_async(request=request)
 
-        assert len(response.data) == 1
-        assert response.data[0].id == user2.id
+        assert len(response) == 1
+        assert response[0].id == user2.id
 
     async def test_update_async(self, mock_clerk: MockClerkClient) -> None:
         """Async update persists changes."""
@@ -425,7 +426,7 @@ class TestAsyncAPI:
             first_name="John",
         )
 
-        updated = await mock_clerk.users.update_async(user.id, first_name="Jane")
+        updated = await mock_clerk.users.update_async(user_id=user.id, first_name="Jane")
 
         assert updated.first_name == "Jane"
 
@@ -433,25 +434,25 @@ class TestAsyncAPI:
         """Async update raises for nonexistent user."""
 
         with pytest.raises(UserNotFoundError):
-            await mock_clerk.users.update_async("user_nonexistent", first_name="Test")
+            await mock_clerk.users.update_async(user_id="user_nonexistent", first_name="Test")
 
     async def test_delete_async(self, mock_clerk: MockClerkClient) -> None:
         """Async delete removes user."""
 
         user = await mock_clerk.users.create_async(email_address=["test@example.com"])
 
-        deleted = await mock_clerk.users.delete_async(user.id)
+        deleted = await mock_clerk.users.delete_async(user_id=user.id)
 
         assert deleted.id == user.id
 
         with pytest.raises(UserNotFoundError):
-            await mock_clerk.users.get_async(user.id)
+            await mock_clerk.users.get_async(user_id=user.id)
 
     async def test_delete_async_not_found(self, mock_clerk: MockClerkClient) -> None:
         """Async delete raises for nonexistent user."""
 
         with pytest.raises(UserNotFoundError):
-            await mock_clerk.users.delete_async("user_nonexistent")
+            await mock_clerk.users.delete_async(user_id="user_nonexistent")
 
     async def test_count_async(self, mock_clerk: MockClerkClient) -> None:
         """Async count returns total."""

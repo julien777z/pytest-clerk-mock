@@ -207,7 +207,9 @@ class MockUsersClient:
                 if (u.first_name and query_lower in u.first_name.lower())
                 or (u.last_name and query_lower in u.last_name.lower())
                 or (u.username and query_lower in u.username.lower())
-                or any(query_lower in e.email_address.lower() for e in u.email_addresses)
+                or any(
+                    query_lower in e.email_address.lower() for e in u.email_addresses
+                )
             ]
 
         reverse = order_by.startswith("-")
@@ -334,8 +336,8 @@ class MockUsersClient:
 
     async def get_organization_memberships_async(
         self,
-        user_id: str,
         *,
+        user_id: str,
         limit: int | None = 10,
         offset: int | None = 0,
     ) -> MockOrganizationMembershipsResponse:
@@ -382,7 +384,7 @@ class MockUsersClient:
             created_at=created_at,
         )
 
-    async def get_async(self, user_id: str) -> MockUser:
+    async def get_async(self, *, user_id: str) -> MockUser:
         """Async version of get."""
 
         return self.get(user_id)
@@ -390,23 +392,33 @@ class MockUsersClient:
     async def list_async(
         self,
         *,
-        email_address: list[str] | None = None,
-        phone_number: list[str] | None = None,
-        external_id: list[str] | None = None,
-        username: list[str] | None = None,
-        user_id: list[str] | None = None,
-        query: str | None = None,
-        last_active_at_since: int | None = None,
-        limit: int = 10,
-        offset: int = 0,
-        order_by: str = "-created_at",
-    ) -> MockListResponse:
+        request: Any = None,
+    ) -> list[MockUser]:
         """Async version of list.
 
-        Returns a MockListResponse with .data attribute to match Clerk SDK behavior.
+        Args:
+            request: GetUserListRequest with filter parameters.
+
+        Returns:
+            List of MockUser objects matching the Clerk SDK's return type.
         """
 
-        users = self.list(
+        email_address = getattr(request, "email_address", None) if request else None
+        phone_number = getattr(request, "phone_number", None) if request else None
+        external_id = getattr(request, "external_id", None) if request else None
+        username = getattr(request, "username", None) if request else None
+        user_id = getattr(request, "user_id", None) if request else None
+        query = getattr(request, "query", None) if request else None
+        last_active_at_since = (
+            getattr(request, "last_active_at_since", None) if request else None
+        )
+        limit = getattr(request, "limit", 10) if request else 10
+        offset = getattr(request, "offset", 0) if request else 0
+        order_by = (
+            getattr(request, "order_by", "-created_at") if request else "-created_at"
+        )
+
+        return self.list(
             email_address=email_address,
             phone_number=phone_number,
             external_id=external_id,
@@ -419,12 +431,10 @@ class MockUsersClient:
             order_by=order_by,
         )
 
-        return MockListResponse(data=users)
-
     async def update_async(
         self,
-        user_id: str,
         *,
+        user_id: str,
         external_id: str | None = None,
         first_name: str | None = None,
         last_name: str | None = None,
@@ -468,7 +478,7 @@ class MockUsersClient:
             notify_primary_email_address_changed=notify_primary_email_address_changed,
         )
 
-    async def delete_async(self, user_id: str) -> MockUser:
+    async def delete_async(self, *, user_id: str) -> MockUser:
         """Async version of delete."""
 
         return self.delete(user_id)
