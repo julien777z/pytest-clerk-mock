@@ -24,6 +24,15 @@ class MockClerkUserListResponse:
     def __init__(self, data: list[MockClerkUserResponse]):
         self.data = data
 
+    def __getitem__(self, index: int) -> MockClerkUserResponse:
+        return self.data[index]
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __bool__(self) -> bool:
+        return len(self.data) > 0
+
 
 def create_clerk_errors(data: object | None = None) -> ClerkErrors:
     """Create a ClerkErrors exception for testing.
