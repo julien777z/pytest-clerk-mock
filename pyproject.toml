@@ -1,6 +1,6 @@
 [project]
 name = "pytest-clerk-mock"
-version = "0.0.5"
+version = "0.0.6"
 description = "A pytest plugin for mocking Clerk authentication"
 authors = [
     { name = "Julien Kmec", email = "me@julien.dev" },
