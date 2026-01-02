@@ -25,6 +25,24 @@ class MockClerkUserListResponse:
         self.data = data
 
 
+def create_clerk_errors(data: object | None = None) -> ClerkErrors:
+    """Create a ClerkErrors exception for testing.
+
+    Args:
+        data: The data payload for the error (can be None, ClerkErrorsData, or MagicMock).
+
+    Returns:
+        A ClerkErrors exception ready to be used as side_effect.
+    """
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 400
+    mock_response.text = "Mock error"
+    mock_response.headers = httpx.Headers({})
+
+    return ClerkErrors(data=data, raw_response=mock_response, body="Mock error")
+
+
 @contextmanager
 def mock_clerk_user_creation(
     patch_target: str,
@@ -145,4 +163,3 @@ def mock_clerk_user_exists(
             data=[MockClerkUserResponse(id=existing_clerk_user_id)]
         )
         yield mock_create, mock_list
-
