@@ -26,16 +26,7 @@ class MockOrganizationsClient:
         name: str = "",
         slug: str = "",
     ) -> MockOrganization:
-        """Register a mock organization.
-
-        Args:
-            org_id: The organization ID.
-            name: The organization name.
-            slug: The organization slug.
-
-        Returns:
-            The created MockOrganization.
-        """
+        """Register a mock organization."""
 
         org = MockOrganization(id=org_id, name=name, slug=slug)
         self._organizations[org_id] = org
@@ -43,17 +34,7 @@ class MockOrganizationsClient:
         return org
 
     def get(self, organization_id: str) -> MockOrganization:
-        """Get an organization by ID.
-
-        Args:
-            organization_id: The organization ID to look up.
-
-        Returns:
-            The MockOrganization if found.
-
-        Raises:
-            OrganizationNotFoundError: If the organization is not found.
-        """
+        """Get an organization by ID."""
 
         if organization_id not in self._organizations:
             raise OrganizationNotFoundError(organization_id)
@@ -61,13 +42,6 @@ class MockOrganizationsClient:
         return self._organizations[organization_id]
 
     async def get_async(self, organization_id: str) -> MockOrganization:
-        """Async version of get.
-
-        Args:
-            organization_id: The organization ID to look up.
-
-        Returns:
-            The MockOrganization if found.
-        """
+        """Async version of get."""
 
         return self.get(organization_id)

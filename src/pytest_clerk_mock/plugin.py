@@ -99,7 +99,7 @@ def _apply_sdk_patches(stack: ExitStack) -> None:
 
     stack.enter_context(
         patch(
-            "clerk_backend_api.organizations.Organizations",
+            "clerk_backend_api.organizations_sdk.OrganizationsSDK",
             _mock_organizations_class,
         )
     )
