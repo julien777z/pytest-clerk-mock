@@ -1,12 +1,12 @@
 [project]
 name = "pytest-clerk-mock"
-version = "0.0.1"
+version = "0.0.0"
 description = "A pytest plugin for mocking Clerk authentication"
 authors = [
     { name = "Julien Kmec", email = "me@julien.dev" },
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "clerk-backend-api>=1.0.0",
     "pydantic>=2.0.0",
