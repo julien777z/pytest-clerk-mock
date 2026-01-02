@@ -1,6 +1,6 @@
 from collections.abc import Generator
-from contextvars import ContextVar
 from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from typing import Any
 from unittest.mock import patch
 
@@ -46,6 +46,22 @@ def _mock_users_class(*args: Any, **kwargs: Any) -> _MockUsersProxy:
     return _users_proxy
 
 
+class _MockOrganizationsProxy:
+    """Proxy that delegates all calls to the current mock client's organizations."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_get_current_client().organizations, name)
+
+
+_organizations_proxy = _MockOrganizationsProxy()
+
+
+def _mock_organizations_class(*args: Any, **kwargs: Any) -> _MockOrganizationsProxy:
+    """Mock Organizations class that returns the proxy."""
+
+    return _organizations_proxy
+
+
 def _apply_sdk_patches(stack: ExitStack) -> None:
     """Apply patches to clerk_backend_api SDK internals.
 
@@ -78,6 +94,13 @@ def _apply_sdk_patches(stack: ExitStack) -> None:
         patch(
             "clerk_backend_api.users.Users",
             _mock_users_class,
+        )
+    )
+
+    stack.enter_context(
+        patch(
+            "clerk_backend_api.organizations.Organizations",
+            _mock_organizations_class,
         )
     )
 
