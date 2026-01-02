@@ -1,22 +1,22 @@
-from pytest_mock_clerk.client import MockClerkClient
-from pytest_mock_clerk.helpers import (
+from pytest_clerk_mock.client import MockClerkClient
+from pytest_clerk_mock.helpers import (
     mock_clerk_user_creation,
     mock_clerk_user_creation_failure,
     mock_clerk_user_exists,
 )
-from pytest_mock_clerk.models.auth import MockAuthResult, MockClerkUser
-from pytest_mock_clerk.models.organization import (
+from pytest_clerk_mock.models.auth import MockAuthResult, MockClerkUser
+from pytest_clerk_mock.models.organization import (
     MockOrganization,
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
 )
-from pytest_mock_clerk.models.user import MockEmailAddress, MockPhoneNumber, MockUser
-from pytest_mock_clerk.plugin import (
+from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
+from pytest_clerk_mock.plugin import (
     create_mock_clerk_fixture,
     mock_clerk,
     mock_clerk_backend,
 )
-from pytest_mock_clerk.services.users import MockListResponse, UserNotFoundError
+from pytest_clerk_mock.services.users import MockListResponse, UserNotFoundError
 
 __all__ = [
     "create_mock_clerk_fixture",

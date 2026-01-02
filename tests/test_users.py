@@ -1,8 +1,8 @@
 import pytest
 from clerk_backend_api.models import ClerkErrors
 
-from pytest_mock_clerk.client import MockClerkClient
-from pytest_mock_clerk.services.users import UserNotFoundError
+from pytest_clerk_mock.client import MockClerkClient
+from pytest_clerk_mock.services.users import UserNotFoundError
 
 
 class TestUserCreate:

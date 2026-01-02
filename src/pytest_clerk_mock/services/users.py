@@ -10,8 +10,8 @@ from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from pydantic import BaseModel, Field
 
-from pytest_mock_clerk.models.organization import MockOrganizationMembershipsResponse
-from pytest_mock_clerk.models.user import MockEmailAddress, MockPhoneNumber, MockUser
+from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
+from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
 
 EMAIL_EXISTS_ERROR_CODE = "form_identifier_exists"
 

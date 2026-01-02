@@ -1,10 +1,10 @@
-from pytest_mock_clerk.models.auth import MockAuthResult, MockClerkUser
-from pytest_mock_clerk.models.organization import (
+from pytest_clerk_mock.models.auth import MockAuthResult, MockClerkUser
+from pytest_clerk_mock.models.organization import (
     MockOrganization,
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
 )
-from pytest_mock_clerk.models.user import MockEmailAddress, MockPhoneNumber, MockUser
+from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
 
 __all__ = [
     "MockAuthResult",

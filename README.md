@@ -82,7 +82,7 @@ def test_as_different_user(mock_clerk):
 Use `MockClerkUser` for common test scenarios:
 
 ```python
-from pytest_mock_clerk import MockClerkUser
+from pytest_clerk_mock import MockClerkUser
 
 def test_with_predefined_user(mock_clerk):
     with mock_clerk.as_clerk_user(MockClerkUser.TEAM_OWNER, org_id="org_123"):
@@ -124,7 +124,7 @@ Create a custom fixture with different defaults:
 
 ```python
 # conftest.py
-from pytest_mock_clerk import create_mock_clerk_fixture
+from pytest_clerk_mock import create_mock_clerk_fixture
 
 mock_clerk = create_mock_clerk_fixture(
     default_user_id="user_custom",
@@ -139,7 +139,7 @@ mock_clerk = create_mock_clerk_fixture(
 For use outside of pytest fixtures:
 
 ```python
-from pytest_mock_clerk import mock_clerk_backend
+from pytest_clerk_mock import mock_clerk_backend
 
 def test_with_context_manager():
     with mock_clerk_backend(default_user_id="user_123") as mock:
@@ -178,7 +178,7 @@ def test_with_context_manager():
 Low-level helpers for specific mocking scenarios:
 
 ```python
-from pytest_mock_clerk import (
+from pytest_clerk_mock import (
     mock_clerk_user_creation,
     mock_clerk_user_creation_failure,
     mock_clerk_user_exists,
@@ -212,7 +212,7 @@ The mock raises appropriate exceptions matching Clerk's behavior:
 - `ClerkErrors` - When creating a user with a duplicate email (matches real Clerk API)
 
 ```python
-from pytest_mock_clerk import UserNotFoundError
+from pytest_clerk_mock import UserNotFoundError
 from clerk_backend_api.models import ClerkErrors
 
 def test_user_not_found(mock_clerk):

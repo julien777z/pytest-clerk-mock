@@ -13,10 +13,10 @@ dependencies = [
 ]
 
 [project.entry-points."pytest11"]
-mock_clerk = "pytest_mock_clerk.plugin"
+mock_clerk = "pytest_clerk_mock.plugin"
 
 [tool.poetry]
-packages = [{include = "pytest_mock_clerk", from = "src"}]
+packages = [{include = "pytest_clerk_mock", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

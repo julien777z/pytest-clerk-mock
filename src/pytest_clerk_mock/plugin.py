@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pytest_mock_clerk.client import MockClerkClient
+from pytest_clerk_mock.client import MockClerkClient
 
 _current_mock_client: ContextVar[MockClerkClient | None] = ContextVar(
     "_current_mock_client", default=None
@@ -187,7 +187,7 @@ def create_mock_clerk_fixture(
 
     Example:
         # In conftest.py
-        from pytest_mock_clerk import create_mock_clerk_fixture
+        from pytest_clerk_mock import create_mock_clerk_fixture
 
         mock_clerk = create_mock_clerk_fixture(autouse=True)
     """

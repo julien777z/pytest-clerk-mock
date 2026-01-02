@@ -1,7 +1,7 @@
 import pytest
 from clerk_backend_api.models import ClerkErrors
 
-from pytest_mock_clerk import (
+from pytest_clerk_mock import (
     MockAuthResult,
     MockClerkClient,
     MockClerkUser,

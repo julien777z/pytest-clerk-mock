@@ -1,5 +1,5 @@
-from pytest_mock_clerk.services.auth import AuthSnapshot, MockAuthState
-from pytest_mock_clerk.services.users import (
+from pytest_clerk_mock.services.auth import AuthSnapshot, MockAuthState
+from pytest_clerk_mock.services.users import (
     MockListResponse,
     MockUsersClient,
     UserNotFoundError,

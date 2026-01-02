@@ -2,7 +2,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pytest_mock_clerk.models.auth import MockAuthResult
+from pytest_clerk_mock.models.auth import MockAuthResult
 
 
 class AuthSnapshot(BaseModel):
