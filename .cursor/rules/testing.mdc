@@ -1,0 +1,59 @@
+---
+alwaysApply: true
+---
+
+# Testing Conventions
+
+## Test Structure
+
+- Use pytest with async tests (`async def test_...`)
+- Group tests in classes named `TestXxx`
+- Use fixtures for setup (defined in `conftest.py` or fixture modules)
+
+## Helper Functions
+
+- Define test helper functions at module level with `_` prefix
+- Use Google-style docstrings for helper functions
+
+```python
+def _create_test_user(mock_clerk: MockClerkClient, email: str) -> MockUser:
+    """Create a test user with the given email."""
+
+    return mock_clerk.users.create(
+        email_address=[email],
+        first_name="Test",
+        last_name="User",
+    )
+```
+
+## Test-Only Models
+
+- When defining Pydantic models within test files, prefix the class name with `_`
+
+```python
+class _TreeNode(BaseModel):
+    name: str
+    children: list["_TreeNode"] = Field(default_factory=list)
+```
+
+## Assertions
+
+- Use descriptive assertions
+- Compare specific fields rather than entire objects when possible
+
+## Mocking
+
+Prefer mocking strategies in this order:
+
+1. **Third-party fake libraries** - Use `moto` for AWS, `fakeredis` for Redis, `responses` for HTTP, etc.
+2. **Patch decorator/fixture** - When faking is impractical, use `@patch` or `patch()` as a fixture
+3. **Inline patch** - For one-off cases, use `patch()` context manager inside the test
+
+When using `unittest.mock`:
+- Use `AsyncMock` for async functions
+- Use `MagicMock` for sync functions
+
+## Configuration
+
+- Configure pytest options in `pyproject.toml` under `[tool.pytest.ini_options]`
+- Use `asyncio_mode = "auto"` for automatic async test support

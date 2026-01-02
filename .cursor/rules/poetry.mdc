@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+
+# Poetry
+
+If dependencies are changed in `pyproject.toml`, run:
+
+```bash
+poetry lock
+```
+
+## Testing
+
+Run tests with:
+
+```bash
+poetry run tests .
+```
+
+When updating existing tests or adding new tests, run the tests to verify they pass.
