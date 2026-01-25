@@ -17,7 +17,11 @@ class MockOrganizationMembership(BaseModel):
     id: str
     role: str = "org:member"
     organization: MockOrganization | None = None
+    organization_id: str | None = None
+    user_id: str | None = None
     public_user_data: dict | None = None
+    public_metadata: dict | None = None
+    private_metadata: dict | None = None
     created_at: int = 0
     updated_at: int = 0
 

@@ -8,6 +8,9 @@ from pytest_clerk_mock.models.organization import (
     MockOrganizationMembershipsResponse,
 )
 from pytest_clerk_mock.services.auth import MockAuthState
+from pytest_clerk_mock.services.organization_memberships import (
+    MockOrganizationMembershipsClient,
+)
 from pytest_clerk_mock.services.organizations import MockOrganizationsClient
 from pytest_clerk_mock.services.users import MockUsersClient
 
@@ -23,6 +26,7 @@ class MockClerkClient:
     ) -> None:
         self._users = MockUsersClient()
         self._organizations = MockOrganizationsClient()
+        self._organization_memberships = MockOrganizationMembershipsClient()
         self._auth_state = MockAuthState()
         self._memberships: dict[str, list[MockOrganizationMembership]] = {}
 
@@ -41,11 +45,18 @@ class MockClerkClient:
 
         return self._organizations
 
+    @property
+    def organization_memberships(self) -> MockOrganizationMembershipsClient:
+        """Access the OrganizationMemberships API."""
+
+        return self._organization_memberships
+
     def reset(self) -> None:
         """Reset all mock services."""
 
         self._users.reset()
         self._organizations.reset()
+        self._organization_memberships.reset()
         self._auth_state.reset()
         self._memberships.clear()
 
