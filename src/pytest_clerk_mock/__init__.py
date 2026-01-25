@@ -17,6 +17,9 @@ from pytest_clerk_mock.plugin import (
     mock_clerk,
     mock_clerk_backend,
 )
+from pytest_clerk_mock.services.organization_memberships import (
+    MockOrganizationMembershipsClient,
+)
 from pytest_clerk_mock.services.organizations import (
     MockOrganizationsClient,
     OrganizationNotFoundError,
@@ -38,6 +41,7 @@ __all__ = [
     "MockListResponse",
     "MockOrganization",
     "MockOrganizationMembership",
+    "MockOrganizationMembershipsClient",
     "MockOrganizationMembershipsResponse",
     "MockOrganizationsClient",
     "MockPhoneNumber",

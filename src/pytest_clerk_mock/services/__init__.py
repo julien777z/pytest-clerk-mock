@@ -1,4 +1,7 @@
 from pytest_clerk_mock.services.auth import AuthSnapshot, MockAuthState
+from pytest_clerk_mock.services.organization_memberships import (
+    MockOrganizationMembershipsClient,
+)
 from pytest_clerk_mock.services.organizations import (
     MockOrganizationsClient,
     OrganizationNotFoundError,
@@ -13,6 +16,7 @@ __all__ = [
     "AuthSnapshot",
     "MockAuthState",
     "MockListResponse",
+    "MockOrganizationMembershipsClient",
     "MockOrganizationsClient",
     "MockUsersClient",
     "OrganizationNotFoundError",

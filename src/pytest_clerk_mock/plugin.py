@@ -62,6 +62,24 @@ def _mock_organizations_class(*args: Any, **kwargs: Any) -> _MockOrganizationsPr
     return _organizations_proxy
 
 
+class _MockOrganizationMembershipsProxy:
+    """Proxy that delegates all calls to the current mock client's organization_memberships."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_get_current_client().organization_memberships, name)
+
+
+_organization_memberships_proxy = _MockOrganizationMembershipsProxy()
+
+
+def _mock_organization_memberships_class(
+    *args: Any, **kwargs: Any
+) -> _MockOrganizationMembershipsProxy:
+    """Mock OrganizationMemberships class that returns the proxy."""
+
+    return _organization_memberships_proxy
+
+
 def _apply_sdk_patches(stack: ExitStack) -> None:
     """Apply patches to clerk_backend_api SDK internals.
 
@@ -101,6 +119,13 @@ def _apply_sdk_patches(stack: ExitStack) -> None:
         patch(
             "clerk_backend_api.organizations_sdk.OrganizationsSDK",
             _mock_organizations_class,
+        )
+    )
+
+    stack.enter_context(
+        patch(
+            "clerk_backend_api.organizationmemberships_sdk.OrganizationMembershipsSDK",
+            _mock_organization_memberships_class,
         )
     )
 
