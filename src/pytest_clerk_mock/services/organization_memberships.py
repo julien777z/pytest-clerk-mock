@@ -62,6 +62,18 @@ class MockOrganizationMembershipsClient:
             private_metadata=private_metadata,
         )
 
+    def get(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+    ) -> MockOrganizationMembership | None:
+        """Get a membership by organization and user ID."""
+
+        key = self._make_key(organization_id, user_id)
+
+        return self._memberships.get(key)
+
     def delete(
         self,
         *,
