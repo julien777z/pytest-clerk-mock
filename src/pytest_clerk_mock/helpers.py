@@ -1,5 +1,6 @@
 from contextlib import contextmanager
-from typing import Generator
+from http import HTTPStatus
+from typing import Final, Generator
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -9,7 +10,9 @@ from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from pydantic import BaseModel
 
-EMAIL_EXISTS_ERROR_CODE = "form_identifier_exists"
+EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
+DEFAULT_ERROR_TEXT: Final[str] = "Mock error"
+DEFAULT_ERROR_CODE: Final[str] = "mock_error"
 
 
 class MockClerkUserResponse(BaseModel):
@@ -34,6 +37,33 @@ class MockClerkUserListResponse:
         return len(self.data) > 0
 
 
+def create_clerk_error(
+    *,
+    status_code: HTTPStatus,
+    code: str,
+    message: str,
+    response_text: str,
+    body: str | None = None,
+) -> ClerkErrors:
+    """Create a ClerkErrors exception with one error payload."""
+
+    response = httpx.Response(status_code=status_code, text=response_text)
+
+    return ClerkErrors(
+        data=ClerkErrorsData(
+            errors=[
+                ClerkError(
+                    code=code,
+                    message=message,
+                    long_message=message,
+                )
+            ]
+        ),
+        raw_response=response,
+        body=body or response_text,
+    )
+
+
 def create_clerk_errors(data: object | None = None) -> ClerkErrors:
     """Create a ClerkErrors exception for testing.
 
@@ -44,12 +74,19 @@ def create_clerk_errors(data: object | None = None) -> ClerkErrors:
         A ClerkErrors exception ready to be used as side_effect.
     """
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 400
-    mock_response.text = "Mock error"
-    mock_response.headers = httpx.Headers({})
+    if data is not None:
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = HTTPStatus.BAD_REQUEST
+        mock_response.text = DEFAULT_ERROR_TEXT
+        mock_response.headers = httpx.Headers({})
+        return ClerkErrors(data=data, raw_response=mock_response, body=DEFAULT_ERROR_TEXT)
 
-    return ClerkErrors(data=data, raw_response=mock_response, body="Mock error")
+    return create_clerk_error(
+        status_code=HTTPStatus.BAD_REQUEST,
+        code=DEFAULT_ERROR_CODE,
+        message=DEFAULT_ERROR_TEXT,
+        response_text=DEFAULT_ERROR_TEXT,
+    )
 
 
 @contextmanager
@@ -137,30 +174,11 @@ def mock_clerk_user_exists(
             mock_list.assert_called_once()
     """
 
-    mock_response = httpx.Response(
-        status_code=422,
-        json={
-            "errors": [
-                {
-                    "message": "That email address is taken. Please try another.",
-                    "long_message": "That email address is taken. Please try another.",
-                    "code": EMAIL_EXISTS_ERROR_CODE,
-                }
-            ]
-        },
-    )
-
-    email_exists_error = ClerkErrors(
-        data=ClerkErrorsData(
-            errors=[
-                ClerkError(
-                    message="That email address is taken. Please try another.",
-                    long_message="That email address is taken. Please try another.",
-                    code=EMAIL_EXISTS_ERROR_CODE,
-                )
-            ]
-        ),
-        raw_response=mock_response,
+    email_exists_error = create_clerk_error(
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        code=EMAIL_EXISTS_ERROR_CODE,
+        message="That email address is taken. Please try another.",
+        response_text="That email address is taken.",
     )
 
     with (

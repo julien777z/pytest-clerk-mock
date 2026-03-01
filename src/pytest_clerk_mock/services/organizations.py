@@ -1,12 +1,11 @@
+from http import HTTPStatus
+from typing import Final
+
+from pytest_clerk_mock.helpers import create_clerk_error
 from pytest_clerk_mock.models.organization import MockOrganization
 
-
-class OrganizationNotFoundError(Exception):
-    """Raised when an organization is not found."""
-
-    def __init__(self, organization_id: str) -> None:
-        self.organization_id = organization_id
-        super().__init__(f"Organization not found: {organization_id}")
+RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
+ORGANIZATION_NOT_FOUND_RESPONSE_TEXT: Final[str] = "Organization not found."
 
 
 class MockOrganizationsClient:
@@ -37,7 +36,12 @@ class MockOrganizationsClient:
         """Get an organization by ID."""
 
         if organization_id not in self._organizations:
-            raise OrganizationNotFoundError(organization_id)
+            raise create_clerk_error(
+                status_code=HTTPStatus.NOT_FOUND,
+                code=RESOURCE_NOT_FOUND_ERROR_CODE,
+                message=f"Organization not found: {organization_id}",
+                response_text=ORGANIZATION_NOT_FOUND_RESPONSE_TEXT,
+            )
 
         return self._organizations[organization_id]
 

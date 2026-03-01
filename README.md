@@ -47,9 +47,11 @@ async def test_create_user_async(mock_clerk):
 
     assert user.id is not None
 
-    fetched = await mock_clerk.users.get_async(user.id)
+    fetched = await mock_clerk.users.get_async(user_id=user.id)
     assert fetched.first_name == "John"
 ```
+
+For SDK parity, several async methods are keyword-only (for example: `get_async(user_id=...)`, `update_async(user_id=...)`, `delete_async(user_id=...)`).
 
 ## Authentication
 
@@ -100,22 +102,57 @@ Available predefined users:
 - `MockClerkUser.GUEST`
 - `MockClerkUser.UNAUTHENTICATED`
 
+## Organizations
+
+```python
+from clerk_backend_api.models import ClerkErrors
+
+def test_organizations(mock_clerk):
+    mock_clerk.organizations.add("org_123", name="My Organization", slug="my-org")
+
+    org = mock_clerk.organizations.get("org_123")
+    assert org.name == "My Organization"
+
+    with pytest.raises(ClerkErrors):
+        mock_clerk.organizations.get("org_missing")
+```
+
 ## Organization Memberships
+
+Use the SDK-style `organization_memberships` API for org membership lifecycle:
 
 ```python
 def test_organization_memberships(mock_clerk):
-    user = mock_clerk.users.create(email_address=["test@example.com"])
-
-    mock_clerk.add_organization_membership(
-        user_id=user.id,
-        org_id="org_123",
+    membership = mock_clerk.organization_memberships.create(
+        organization_id="org_123",
+        user_id="user_123",
         role="org:admin",
-        org_name="My Organization",
     )
 
-    memberships = mock_clerk.users.get_organization_memberships(user.id)
+    assert membership.organization_id == "org_123"
+    assert membership.user_id == "user_123"
+    assert membership.role == "org:admin"
+
+    memberships = mock_clerk.organization_memberships.list(
+        organization_id="org_123",
+        user_id=["user_123"],
+    )
     assert memberships.total_count == 1
-    assert memberships.data[0].organization.id == "org_123"
+    assert memberships.data[0].user_id == "user_123"
+```
+
+If your app reads memberships via `users.get_organization_memberships(...)`, configure that explicitly:
+
+```python
+from pytest_clerk_mock import MockOrganizationMembershipsResponse
+
+def test_user_membership_lookup(mock_clerk):
+    mock_clerk.users.set_organization_memberships(
+        "user_123",
+        MockOrganizationMembershipsResponse(data=[], total_count=0),
+    )
+    memberships = mock_clerk.users.get_organization_memberships("user_123")
+    assert memberships.total_count == 0
 ```
 
 ## Custom Fixture Configuration
@@ -133,6 +170,8 @@ mock_clerk = create_mock_clerk_fixture(
     autouse=True,
 )
 ```
+
+`patch_targets` is accepted for backward compatibility in fixture/context-manager helpers, but is deprecated and ignored.
 
 ## Context Manager API
 
@@ -161,6 +200,23 @@ def test_with_context_manager():
 | `count()` | `count_async()` |
 | `get_organization_memberships()` | `get_organization_memberships_async()` |
 
+### Organizations
+
+| Sync | Async |
+|------|-------|
+| `add()` | - |
+| `get()` | `get_async()` |
+| `reset()` | - |
+
+### Organization Memberships
+
+| Sync | Async |
+|------|-------|
+| `create()` | `create_async()` |
+| `list()` | `list_async()` |
+| `delete()` | `delete_async()` |
+| `reset()` | - |
+
 ### Authentication
 
 | Method | Description |
@@ -179,6 +235,7 @@ Low-level helpers for specific mocking scenarios:
 
 ```python
 from pytest_clerk_mock import (
+    create_clerk_errors,
     mock_clerk_user_creation,
     mock_clerk_user_creation_failure,
     mock_clerk_user_exists,
@@ -202,21 +259,25 @@ def test_duplicate_email():
     ) as (mock_create, mock_list):
         # Your code that handles duplicate email scenario
         pass
+
+def test_generic_clerk_error():
+    err = create_clerk_errors()
+    assert err is not None
 ```
 
 ## Exceptions
 
 The mock raises appropriate exceptions matching Clerk's behavior:
 
-- `UserNotFoundError` - When getting/updating/deleting a non-existent user
 - `ClerkErrors` - When creating a user with a duplicate email (matches real Clerk API)
+- `ClerkErrors` - When getting/updating/deleting a non-existent user (uses `resource_not_found`)
+- `ClerkErrors` - When getting a non-existent organization (uses `resource_not_found`)
 
 ```python
-from pytest_clerk_mock import UserNotFoundError
 from clerk_backend_api.models import ClerkErrors
 
 def test_user_not_found(mock_clerk):
-    with pytest.raises(UserNotFoundError):
+    with pytest.raises(ClerkErrors):
         mock_clerk.users.get("nonexistent_user")
 
 def test_duplicate_email(mock_clerk):

@@ -1,27 +1,21 @@
 from __future__ import annotations
 
 import secrets
-from typing import Any
-from unittest.mock import MagicMock
+from http import HTTPStatus
+from typing import Any, Final
 
-import httpx
 from clerk_backend_api.models import ClerkErrors
-from clerk_backend_api.models.clerkerror import ClerkError
-from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from pydantic import BaseModel, Field
 
+from pytest_clerk_mock.helpers import create_clerk_error
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
 
-EMAIL_EXISTS_ERROR_CODE = "form_identifier_exists"
-
-
-class UserNotFoundError(Exception):
-    """Raised when a user is not found."""
-
-    def __init__(self, user_id: str) -> None:
-        self.user_id = user_id
-        super().__init__(f"User not found: {user_id}")
+EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
+RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
+EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
+EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
+USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
 
 
 class MockListResponse(BaseModel):
@@ -39,22 +33,22 @@ def _generate_id(prefix: str) -> str:
 def _create_email_exists_error(email: str) -> ClerkErrors:
     """Create a ClerkErrors exception for duplicate email."""
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 422
-    mock_response.text = "That email address is taken."
-    mock_response.headers = httpx.Headers({})
+    return create_clerk_error(
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        response_text=EMAIL_EXISTS_RESPONSE_TEXT,
+        code=EMAIL_EXISTS_ERROR_CODE,
+        message=EMAIL_EXISTS_MESSAGE,
+    )
 
-    return ClerkErrors(
-        data=ClerkErrorsData(
-            errors=[
-                ClerkError(
-                    code=EMAIL_EXISTS_ERROR_CODE,
-                    message="That email address is taken. Please try another.",
-                    long_message="That email address is taken. Please try another.",
-                )
-            ]
-        ),
-        raw_response=mock_response,
+
+def _create_user_not_found_error(user_id: str) -> ClerkErrors:
+    """Create a ClerkErrors exception for missing users."""
+
+    return create_clerk_error(
+        status_code=HTTPStatus.NOT_FOUND,
+        response_text=USER_NOT_FOUND_RESPONSE_TEXT,
+        code=RESOURCE_NOT_FOUND_ERROR_CODE,
+        message=f"User not found: {user_id}",
     )
 
 
@@ -149,7 +143,7 @@ class MockUsersClient:
         """Get a user by ID."""
 
         if user_id not in self._users:
-            raise UserNotFoundError(user_id)
+            raise _create_user_not_found_error(user_id)
 
         return self._users[user_id]
 
@@ -248,7 +242,7 @@ class MockUsersClient:
         """Update a user by ID."""
 
         if user_id not in self._users:
-            raise UserNotFoundError(user_id)
+            raise _create_user_not_found_error(user_id)
 
         user = self._users[user_id]
         fields = {
@@ -278,7 +272,7 @@ class MockUsersClient:
         """Delete a user by ID."""
 
         if user_id not in self._users:
-            raise UserNotFoundError(user_id)
+            raise _create_user_not_found_error(user_id)
 
         user = self._users.pop(user_id)
 
