@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import secrets
 from typing import Any, Final
-from unittest.mock import MagicMock
 
 import httpx
 from clerk_backend_api.models import ClerkErrors
@@ -32,10 +31,11 @@ def _generate_id(prefix: str) -> str:
 def _create_email_exists_error(email: str) -> ClerkErrors:
     """Create a ClerkErrors exception for duplicate email."""
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 422
-    mock_response.text = "That email address is taken."
-    mock_response.headers = httpx.Headers({})
+    mock_response = httpx.Response(
+        status_code=422,
+        text="That email address is taken.",
+        headers=httpx.Headers({}),
+    )
 
     return ClerkErrors(
         data=ClerkErrorsData(
@@ -54,10 +54,11 @@ def _create_email_exists_error(email: str) -> ClerkErrors:
 def _create_user_not_found_error(user_id: str) -> ClerkErrors:
     """Create a ClerkErrors exception for missing users."""
 
-    mock_response = MagicMock(spec=httpx.Response)
-    mock_response.status_code = 404
-    mock_response.text = "User not found."
-    mock_response.headers = httpx.Headers({})
+    mock_response = httpx.Response(
+        status_code=404,
+        text="User not found.",
+        headers=httpx.Headers({}),
+    )
 
     return ClerkErrors(
         data=ClerkErrorsData(
