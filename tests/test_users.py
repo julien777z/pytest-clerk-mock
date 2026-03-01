@@ -2,9 +2,6 @@ import pytest
 from clerk_backend_api.models import ClerkErrors, GetUserListRequest
 
 from pytest_clerk_mock.client import MockClerkClient
-from pytest_clerk_mock.services.users import UserNotFoundError
-
-
 class TestUserCreate:
     """Tests for user creation."""
 
@@ -130,12 +127,15 @@ class TestUserGet:
         assert fetched.email_addresses[0].email_address == "test@example.com"
 
     def test_get_user_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Nonexistent user raises UserNotFoundError."""
+        """Nonexistent user raises ClerkErrors with resource_not_found code."""
 
-        with pytest.raises(UserNotFoundError) as exc_info:
+        with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.get("user_nonexistent")
 
-        assert exc_info.value.user_id == "user_nonexistent"
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == "resource_not_found"
+        assert errors[0].message == "User not found: user_nonexistent"
 
 
 class TestUserList:
@@ -279,10 +279,14 @@ class TestUserUpdate:
         assert updated.public_metadata == {"role": "admin"}
 
     def test_update_user_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Update nonexistent user raises UserNotFoundError."""
+        """Update nonexistent user raises ClerkErrors."""
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.update("user_nonexistent", first_name="Test")
+
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == "resource_not_found"
 
 
 class TestUserDelete:
@@ -297,7 +301,7 @@ class TestUserDelete:
 
         assert deleted.id == user.id
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors):
             mock_clerk.users.get(user.id)
 
     def test_delete_user_clears_email(self, mock_clerk: MockClerkClient) -> None:
@@ -311,10 +315,14 @@ class TestUserDelete:
         assert new_user.id != user.id
 
     def test_delete_user_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Delete nonexistent user raises UserNotFoundError."""
+        """Delete nonexistent user raises ClerkErrors."""
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.delete("user_nonexistent")
+
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == "resource_not_found"
 
 
 class TestUserCount:
@@ -391,10 +399,14 @@ class TestAsyncAPI:
         assert fetched.first_name == "John"
 
     async def test_get_async_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Async get raises for nonexistent user."""
+        """Async get raises ClerkErrors for nonexistent user."""
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors) as exc_info:
             await mock_clerk.users.get_async(user_id="user_nonexistent")
+
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == "resource_not_found"
 
     async def test_list_async(self, mock_clerk: MockClerkClient) -> None:
         """Async list returns a list of users."""
@@ -431,10 +443,14 @@ class TestAsyncAPI:
         assert updated.first_name == "Jane"
 
     async def test_update_async_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Async update raises for nonexistent user."""
+        """Async update raises ClerkErrors for nonexistent user."""
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors) as exc_info:
             await mock_clerk.users.update_async(user_id="user_nonexistent", first_name="Test")
+
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == "resource_not_found"
 
     async def test_delete_async(self, mock_clerk: MockClerkClient) -> None:
         """Async delete removes user."""
@@ -445,14 +461,18 @@ class TestAsyncAPI:
 
         assert deleted.id == user.id
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors):
             await mock_clerk.users.get_async(user_id=user.id)
 
     async def test_delete_async_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Async delete raises for nonexistent user."""
+        """Async delete raises ClerkErrors for nonexistent user."""
 
-        with pytest.raises(UserNotFoundError):
+        with pytest.raises(ClerkErrors) as exc_info:
             await mock_clerk.users.delete_async(user_id="user_nonexistent")
+
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == "resource_not_found"
 
     async def test_count_async(self, mock_clerk: MockClerkClient) -> None:
         """Async count returns total."""

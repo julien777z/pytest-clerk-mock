@@ -208,15 +208,14 @@ def test_duplicate_email():
 
 The mock raises appropriate exceptions matching Clerk's behavior:
 
-- `UserNotFoundError` - When getting/updating/deleting a non-existent user
 - `ClerkErrors` - When creating a user with a duplicate email (matches real Clerk API)
+- `ClerkErrors` - When getting/updating/deleting a non-existent user (uses `resource_not_found`)
 
 ```python
-from pytest_clerk_mock import UserNotFoundError
 from clerk_backend_api.models import ClerkErrors
 
 def test_user_not_found(mock_clerk):
-    with pytest.raises(UserNotFoundError):
+    with pytest.raises(ClerkErrors):
         mock_clerk.users.get("nonexistent_user")
 
 def test_duplicate_email(mock_clerk):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from typing import Any
+from typing import Any, Final
 from unittest.mock import MagicMock
 
 import httpx
@@ -13,15 +13,8 @@ from pydantic import BaseModel, Field
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
 
-EMAIL_EXISTS_ERROR_CODE = "form_identifier_exists"
-
-
-class UserNotFoundError(Exception):
-    """Raised when a user is not found."""
-
-    def __init__(self, user_id: str) -> None:
-        self.user_id = user_id
-        super().__init__(f"User not found: {user_id}")
+EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
+RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 
 
 class MockListResponse(BaseModel):
@@ -51,6 +44,28 @@ def _create_email_exists_error(email: str) -> ClerkErrors:
                     code=EMAIL_EXISTS_ERROR_CODE,
                     message="That email address is taken. Please try another.",
                     long_message="That email address is taken. Please try another.",
+                )
+            ]
+        ),
+        raw_response=mock_response,
+    )
+
+
+def _create_user_not_found_error(user_id: str) -> ClerkErrors:
+    """Create a ClerkErrors exception for missing users."""
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 404
+    mock_response.text = "User not found."
+    mock_response.headers = httpx.Headers({})
+
+    return ClerkErrors(
+        data=ClerkErrorsData(
+            errors=[
+                ClerkError(
+                    code=RESOURCE_NOT_FOUND_ERROR_CODE,
+                    message=f"User not found: {user_id}",
+                    long_message=f"User not found: {user_id}",
                 )
             ]
         ),
@@ -149,7 +164,7 @@ class MockUsersClient:
         """Get a user by ID."""
 
         if user_id not in self._users:
-            raise UserNotFoundError(user_id)
+            raise _create_user_not_found_error(user_id)
 
         return self._users[user_id]
 
@@ -248,7 +263,7 @@ class MockUsersClient:
         """Update a user by ID."""
 
         if user_id not in self._users:
-            raise UserNotFoundError(user_id)
+            raise _create_user_not_found_error(user_id)
 
         user = self._users[user_id]
         fields = {
@@ -278,7 +293,7 @@ class MockUsersClient:
         """Delete a user by ID."""
 
         if user_id not in self._users:
-            raise UserNotFoundError(user_id)
+            raise _create_user_not_found_error(user_id)
 
         user = self._users.pop(user_id)
 
