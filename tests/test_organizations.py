@@ -1,10 +1,21 @@
 import pytest
+from clerk_backend_api.models import ClerkErrors
 
 from pytest_clerk_mock import (
     MockClerkClient,
     MockOrganization,
-    OrganizationNotFoundError,
 )
+
+RESOURCE_NOT_FOUND_CODE = "resource_not_found"
+
+
+def _assert_resource_not_found(exc: ClerkErrors, *, organization_id: str) -> None:
+    """Assert ClerkErrors contains a resource_not_found organization error."""
+
+    errors = exc.data.errors
+    assert len(errors) == 1
+    assert errors[0].code == RESOURCE_NOT_FOUND_CODE
+    assert errors[0].message == f"Organization not found: {organization_id}"
 
 
 class TestOrganizationAdd:
@@ -50,12 +61,12 @@ class TestOrganizationGet:
         assert retrieved.name == "Test Org"
 
     def test_get_not_found(self, mock_clerk: MockClerkClient) -> None:
-        """Nonexistent organization raises OrganizationNotFoundError."""
+        """Nonexistent organization raises ClerkErrors."""
 
-        with pytest.raises(OrganizationNotFoundError) as exc_info:
+        with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.organizations.get("org_nonexistent")
 
-        assert exc_info.value.organization_id == "org_nonexistent"
+        _assert_resource_not_found(exc_info.value, organization_id="org_nonexistent")
 
     async def test_get_async(self, mock_clerk: MockClerkClient) -> None:
         """Async get returns added organization."""
@@ -79,9 +90,9 @@ class TestOrganizationReset:
 
         mock_clerk.organizations.reset()
 
-        with pytest.raises(OrganizationNotFoundError):
+        with pytest.raises(ClerkErrors):
             mock_clerk.organizations.get("org_1")
 
-        with pytest.raises(OrganizationNotFoundError):
+        with pytest.raises(ClerkErrors):
             mock_clerk.organizations.get("org_2")
 

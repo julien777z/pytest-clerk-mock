@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import secrets
+from http import HTTPStatus
 from typing import Any, Final
 
-import httpx
 from clerk_backend_api.models import ClerkErrors
-from clerk_backend_api.models.clerkerror import ClerkError
-from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from pydantic import BaseModel, Field
 
+from pytest_clerk_mock.helpers import create_clerk_error
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
 
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
 RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
+EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
+EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
+USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
 
 
 class MockListResponse(BaseModel):
@@ -31,46 +33,22 @@ def _generate_id(prefix: str) -> str:
 def _create_email_exists_error(email: str) -> ClerkErrors:
     """Create a ClerkErrors exception for duplicate email."""
 
-    mock_response = httpx.Response(
-        status_code=422,
-        text="That email address is taken.",
-        headers=httpx.Headers({}),
-    )
-
-    return ClerkErrors(
-        data=ClerkErrorsData(
-            errors=[
-                ClerkError(
-                    code=EMAIL_EXISTS_ERROR_CODE,
-                    message="That email address is taken. Please try another.",
-                    long_message="That email address is taken. Please try another.",
-                )
-            ]
-        ),
-        raw_response=mock_response,
+    return create_clerk_error(
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        response_text=EMAIL_EXISTS_RESPONSE_TEXT,
+        code=EMAIL_EXISTS_ERROR_CODE,
+        message=EMAIL_EXISTS_MESSAGE,
     )
 
 
 def _create_user_not_found_error(user_id: str) -> ClerkErrors:
     """Create a ClerkErrors exception for missing users."""
 
-    mock_response = httpx.Response(
-        status_code=404,
-        text="User not found.",
-        headers=httpx.Headers({}),
-    )
-
-    return ClerkErrors(
-        data=ClerkErrorsData(
-            errors=[
-                ClerkError(
-                    code=RESOURCE_NOT_FOUND_ERROR_CODE,
-                    message=f"User not found: {user_id}",
-                    long_message=f"User not found: {user_id}",
-                )
-            ]
-        ),
-        raw_response=mock_response,
+    return create_clerk_error(
+        status_code=HTTPStatus.NOT_FOUND,
+        response_text=USER_NOT_FOUND_RESPONSE_TEXT,
+        code=RESOURCE_NOT_FOUND_ERROR_CODE,
+        message=f"User not found: {user_id}",
     )
 
 

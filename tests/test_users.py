@@ -2,6 +2,21 @@ import pytest
 from clerk_backend_api.models import ClerkErrors, GetUserListRequest
 
 from pytest_clerk_mock.client import MockClerkClient
+
+RESOURCE_NOT_FOUND_CODE = "resource_not_found"
+
+
+def _assert_resource_not_found(exc: ClerkErrors, *, user_id: str | None = None) -> None:
+    """Assert ClerkErrors contains a single resource_not_found error."""
+
+    errors = exc.data.errors
+    assert len(errors) == 1
+    assert errors[0].code == RESOURCE_NOT_FOUND_CODE
+
+    if user_id is not None:
+        assert errors[0].message == f"User not found: {user_id}"
+
+
 class TestUserCreate:
     """Tests for user creation."""
 
@@ -132,10 +147,7 @@ class TestUserGet:
         with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.get("user_nonexistent")
 
-        errors = exc_info.value.data.errors
-        assert len(errors) == 1
-        assert errors[0].code == "resource_not_found"
-        assert errors[0].message == "User not found: user_nonexistent"
+        _assert_resource_not_found(exc_info.value, user_id="user_nonexistent")
 
 
 class TestUserList:
@@ -284,9 +296,7 @@ class TestUserUpdate:
         with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.update("user_nonexistent", first_name="Test")
 
-        errors = exc_info.value.data.errors
-        assert len(errors) == 1
-        assert errors[0].code == "resource_not_found"
+        _assert_resource_not_found(exc_info.value)
 
 
 class TestUserDelete:
@@ -320,9 +330,7 @@ class TestUserDelete:
         with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.delete("user_nonexistent")
 
-        errors = exc_info.value.data.errors
-        assert len(errors) == 1
-        assert errors[0].code == "resource_not_found"
+        _assert_resource_not_found(exc_info.value)
 
 
 class TestUserCount:
@@ -404,9 +412,7 @@ class TestAsyncAPI:
         with pytest.raises(ClerkErrors) as exc_info:
             await mock_clerk.users.get_async(user_id="user_nonexistent")
 
-        errors = exc_info.value.data.errors
-        assert len(errors) == 1
-        assert errors[0].code == "resource_not_found"
+        _assert_resource_not_found(exc_info.value)
 
     async def test_list_async(self, mock_clerk: MockClerkClient) -> None:
         """Async list returns a list of users."""
@@ -448,9 +454,7 @@ class TestAsyncAPI:
         with pytest.raises(ClerkErrors) as exc_info:
             await mock_clerk.users.update_async(user_id="user_nonexistent", first_name="Test")
 
-        errors = exc_info.value.data.errors
-        assert len(errors) == 1
-        assert errors[0].code == "resource_not_found"
+        _assert_resource_not_found(exc_info.value)
 
     async def test_delete_async(self, mock_clerk: MockClerkClient) -> None:
         """Async delete removes user."""
@@ -470,9 +474,7 @@ class TestAsyncAPI:
         with pytest.raises(ClerkErrors) as exc_info:
             await mock_clerk.users.delete_async(user_id="user_nonexistent")
 
-        errors = exc_info.value.data.errors
-        assert len(errors) == 1
-        assert errors[0].code == "resource_not_found"
+        _assert_resource_not_found(exc_info.value)
 
     async def test_count_async(self, mock_clerk: MockClerkClient) -> None:
         """Async count returns total."""

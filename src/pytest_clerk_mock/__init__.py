@@ -22,7 +22,6 @@ from pytest_clerk_mock.services.organization_memberships import (
 )
 from pytest_clerk_mock.services.organizations import (
     MockOrganizationsClient,
-    OrganizationNotFoundError,
 )
 from pytest_clerk_mock.services.users import MockListResponse
 
@@ -46,5 +45,4 @@ __all__ = [
     "MockOrganizationsClient",
     "MockPhoneNumber",
     "MockUser",
-    "OrganizationNotFoundError",
 ]
