@@ -7,6 +7,7 @@ from pytest_clerk_mock import (
 )
 
 RESOURCE_NOT_FOUND_CODE = "resource_not_found"
+CREATED_AT_MS = 1773273600000
 
 
 def _assert_resource_not_found(exc: ClerkErrors, *, organization_id: str) -> None:
@@ -71,6 +72,21 @@ class TestOrganizationCreate:
         assert org.public_metadata == {"team": "platform"}
         assert org.private_metadata == {"from_test": "e2e"}
         assert org.max_allowed_memberships == 25
+        assert org.created_at == 0
+
+    def test_create_organization_with_created_at(self, mock_clerk: MockClerkClient) -> None:
+        """Test that create stores a provided created_at timestamp."""
+
+        org = mock_clerk.organizations.create(
+            request={
+                "name": "Created Org",
+                "created_at": "2026-03-12T00:00:00Z",
+            }
+        )
+
+        stored = mock_clerk.organizations.get(org.id)
+
+        assert stored.created_at == CREATED_AT_MS
 
     async def test_create_async_with_request(self, mock_clerk: MockClerkClient) -> None:
         """Test that create_async accepts the Clerk-style request payload used in app tests."""
@@ -117,6 +133,7 @@ class TestOrganizationCreate:
         assert stored.public_metadata == {"team": "platform"}
         assert stored.private_metadata == {"source": "object"}
         assert stored.max_allowed_memberships == 10
+        assert stored.created_at == CREATED_AT_MS
 
 
 class TestOrganizationGet:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from http import HTTPStatus
 from typing import Final, TypeVar
 
@@ -44,6 +45,18 @@ def _resolve_metadata(
     return dict(resolved_metadata)
 
 
+def _resolve_created_at(created_at: OptionalNullable[str]) -> int | None:
+    """Convert Clerk created_at strings into epoch milliseconds."""
+
+    resolved_created_at = _resolve_optional_nullable(created_at)
+    if resolved_created_at is None:
+        return None
+
+    normalized_created_at = resolved_created_at.replace("Z", "+00:00")
+
+    return int(datetime.fromisoformat(normalized_created_at).timestamp() * 1000)
+
+
 class MockOrganizationsClient:
     """Mock implementation of Clerk's Organizations API."""
 
@@ -81,6 +94,7 @@ class MockOrganizationsClient:
         public_metadata: dict[str, object] | None = None,
         private_metadata: dict[str, object] | None = None,
         max_allowed_memberships: int = DEFAULT_MAX_ALLOWED_MEMBERSHIPS,
+        created_at: int | None = None,
     ) -> MockOrganization:
         """Persist a mock organization."""
 
@@ -92,6 +106,7 @@ class MockOrganizationsClient:
             public_metadata=public_metadata or {},
             private_metadata=private_metadata or {},
             max_allowed_memberships=max_allowed_memberships,
+            created_at=created_at if created_at is not None else 0,
         )
         self._organizations[org_id] = org
 
@@ -116,6 +131,7 @@ class MockOrganizationsClient:
         resolved_slug = _resolve_optional_nullable(request_payload.get("slug", UNSET)) or ""
         resolved_public_metadata = _resolve_metadata(request_payload.get("public_metadata", UNSET))
         resolved_private_metadata = _resolve_metadata(request_payload.get("private_metadata", UNSET))
+        resolved_created_at = _resolve_created_at(request_payload.get("created_at", UNSET))
         resolved_max_allowed_memberships = _resolve_optional_nullable(
             request_payload.get("max_allowed_memberships", UNSET)
         )
@@ -132,6 +148,7 @@ class MockOrganizationsClient:
                 if resolved_max_allowed_memberships is not None
                 else DEFAULT_MAX_ALLOWED_MEMBERSHIPS
             ),
+            created_at=resolved_created_at,
         )
 
     def get(self, organization_id: str) -> MockOrganization:
