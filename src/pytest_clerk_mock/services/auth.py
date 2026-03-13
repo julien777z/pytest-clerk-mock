@@ -1,14 +1,4 @@
-from pydantic import BaseModel
-
-from pytest_clerk_mock.models.auth import MockAuthResult
-
-
-class AuthSnapshot(BaseModel):
-    """Snapshot of authentication state for restoration."""
-
-    user_id: str | None
-    org_id: str | None
-    org_role: str
+from pytest_clerk_mock.models.auth import AuthSnapshot, MockAuthResult
 
 
 class MockAuthState:

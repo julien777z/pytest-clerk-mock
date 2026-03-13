@@ -89,3 +89,15 @@ class MockUser(BaseModel):
     last_active_at: int | None = None
     create_organizations_limit: int | None = None
     legal_accepted_at: int | None = None
+
+
+class MockClerkUserResponse(BaseModel):
+    """Simple mock Clerk user returned from create_async."""
+
+    id: str
+
+
+class MockListResponse(BaseModel):
+    """Response wrapper for list operations, matching Clerk SDK structure."""
+
+    data: list[MockUser] = Field(default_factory=list)

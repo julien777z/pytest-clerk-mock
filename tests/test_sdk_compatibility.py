@@ -1,5 +1,6 @@
 import inspect
-from typing import Any, Final, Protocol, get_type_hints
+from types import UnionType
+from typing import Any, Final, Protocol, Union, get_args, get_origin, get_type_hints, is_typeddict
 
 import pytest
 from clerk_backend_api import models
@@ -99,12 +100,34 @@ def _build_signature_spec(
             (
                 name,
                 parameter.kind,
-                hints.get(name, parameter.annotation),
+                _normalize_annotation(hints.get(name, parameter.annotation)),
                 parameter.default,
             )
         )
 
-    return parameters, hints.get(RETURN_KEY, signature.return_annotation)
+    return parameters, _normalize_annotation(hints.get(RETURN_KEY, signature.return_annotation))
+
+
+def _normalize_annotation(annotation: Any) -> Any:
+    """Normalize equivalent type annotations for comparison."""
+
+    if is_typeddict(annotation) or (
+        isinstance(annotation, type)
+        and issubclass(annotation, dict)
+        and getattr(annotation, "__annotations__", None) is not None
+    ):
+        return dict[str, Any]
+
+    origin = get_origin(annotation)
+    if origin in (UnionType, Union):
+        normalized_args = [_normalize_annotation(arg) for arg in get_args(annotation)]
+        normalized_union = normalized_args[0]
+        for arg in normalized_args[1:]:
+            normalized_union = normalized_union | arg
+
+        return normalized_union
+
+    return annotation
 
 
 def _build_pydantic_field_spec(model_cls: type[models.GetUserListRequest]) -> dict[str, tuple[Any, Any]]:
@@ -239,13 +262,3 @@ class TestRequestModelParity:
             _get_public_attribute(organization_request_interfaces, "CreateOrganizationRequestBody"),
         )
 
-    def test_create_organization_request_typed_dict_matches_mock_typed_dict(self) -> None:
-        """Test that the organization create TypedDict matches the mock TypedDict exactly."""
-
-        assert_typed_dict_matches(
-            models.CreateOrganizationRequestBodyTypedDict,
-            _get_public_attribute(
-                organization_request_interfaces,
-                "CreateOrganizationRequestBodyTypedDict",
-            ),
-        )

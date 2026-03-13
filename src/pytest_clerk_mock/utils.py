@@ -1,6 +1,6 @@
+import secrets
 from contextlib import contextmanager
 from http import HTTPStatus
-import secrets
 from typing import Any, Final, Generator, TypeVar
 from unittest.mock import MagicMock, patch
 
@@ -10,19 +10,14 @@ from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from clerk_backend_api.types import UNSET, OptionalNullable
-from pydantic import BaseModel
+
+from pytest_clerk_mock.models.user import MockClerkUserResponse
 
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
 DEFAULT_ERROR_TEXT: Final[str] = "Mock error"
 DEFAULT_ERROR_CODE: Final[str] = "mock_error"
 
 RequestValueT = TypeVar("RequestValueT")
-
-
-class MockClerkUserResponse(BaseModel):
-    """Simple mock Clerk user returned from create_async."""
-
-    id: str
 
 
 class MockClerkUserListResponse:
@@ -113,16 +108,16 @@ def resolve_optional_nullable(value: OptionalNullable[RequestValueT]) -> Request
     return value
 
 
-def get_request_value(request: object, key: str) -> Any:
+def get_request_value(request: object, key: str, default: Any = None) -> Any:
     """Read a field from either a Clerk request model or typed dict."""
 
     if isinstance(request, dict):
-        return request.get(key)
+        return request.get(key, default)
 
     if hasattr(request, "model_dump"):
-        return request.model_dump(mode="python").get(key)
+        return request.model_dump(mode="python").get(key, default)
 
-    return object.__getattribute__(request, key)
+    return getattr(request, key, default)
 
 
 @contextmanager

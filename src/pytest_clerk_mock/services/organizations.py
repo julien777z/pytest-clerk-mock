@@ -7,14 +7,12 @@ from typing import Any, Dict, Final, List, Mapping
 from clerk_backend_api import models, utils
 from clerk_backend_api.types import UNSET, OptionalNullable
 
-from pytest_clerk_mock.interfaces.organization_requests import (
-    CreateOrganizationRequest,
-    MetadataDict,
-)
+from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
 from pytest_clerk_mock.models.organization import MockOrganization
 from pytest_clerk_mock.utils import (
     create_clerk_error,
     generate_clerk_id,
+    get_request_value,
     resolve_optional_nullable,
 )
 
@@ -104,7 +102,7 @@ class MockOrganizationsClient:
     def create(
         self,
         *,
-        request: CreateOrganizationRequest | None = None,
+        request: models.CreateOrganizationRequestBody | dict[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -114,15 +112,25 @@ class MockOrganizationsClient:
 
         _ = retries, server_url, timeout_ms, http_headers
 
-        request_payload: CreateOrganizationRequest = request or {"name": ""}
-        resolved_name = request_payload["name"]
-        resolved_created_by = resolve_optional_nullable(request_payload.get("created_by", UNSET))
-        resolved_slug = resolve_optional_nullable(request_payload.get("slug", UNSET)) or ""
-        resolved_public_metadata = _resolve_metadata(request_payload.get("public_metadata", UNSET))
-        resolved_private_metadata = _resolve_metadata(request_payload.get("private_metadata", UNSET))
-        resolved_created_at = _resolve_created_at(request_payload.get("created_at", UNSET))
+        request_payload = request or {"name": ""}
+        resolved_name = get_request_value(request_payload, "name")
+        resolved_created_by = resolve_optional_nullable(
+            get_request_value(request_payload, "created_by", UNSET)
+        )
+        resolved_slug = (
+            resolve_optional_nullable(get_request_value(request_payload, "slug", UNSET)) or ""
+        )
+        resolved_public_metadata = _resolve_metadata(
+            get_request_value(request_payload, "public_metadata", UNSET)
+        )
+        resolved_private_metadata = _resolve_metadata(
+            get_request_value(request_payload, "private_metadata", UNSET)
+        )
+        resolved_created_at = _resolve_created_at(
+            get_request_value(request_payload, "created_at", UNSET)
+        )
         resolved_max_allowed_memberships = resolve_optional_nullable(
-            request_payload.get("max_allowed_memberships", UNSET)
+            get_request_value(request_payload, "max_allowed_memberships", UNSET)
         )
 
         return self._store_organization(
@@ -364,7 +372,7 @@ class MockOrganizationsClient:
     async def create_async(
         self,
         *,
-        request: CreateOrganizationRequest | None = None,
+        request: models.CreateOrganizationRequestBody | dict[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,

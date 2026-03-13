@@ -6,10 +6,13 @@ from typing import Any, Dict, Final, List, Mapping
 from clerk_backend_api import models, utils
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.types import UNSET, OptionalNullable
-from pydantic import BaseModel, Field
 
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
-from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
+from pytest_clerk_mock.models.user import (
+    MockEmailAddress,
+    MockPhoneNumber,
+    MockUser,
+)
 from pytest_clerk_mock.utils import (
     create_clerk_error,
     generate_clerk_id,
@@ -23,12 +26,6 @@ EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try anot
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
 DEFAULT_GET_USER_LIST_REQUEST: Final[models.GetUserListRequest] = models.GetUserListRequest()
-
-
-class MockListResponse(BaseModel):
-    """Response wrapper for list operations, matching Clerk SDK structure."""
-
-    data: list[MockUser] = Field(default_factory=list)
 
 
 def _create_email_exists_error(email: str) -> ClerkErrors:
