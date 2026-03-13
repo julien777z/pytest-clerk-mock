@@ -1,14 +1,32 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+from typing import Any, Dict, List, Mapping, Tuple
+
+import httpx
+from clerk_backend_api import models, utils
+from clerk_backend_api.models import ClerkErrors
+from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.models.organization import (
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
 )
+from pytest_clerk_mock.utils import build_http_response, create_clerk_error, generate_clerk_id
 
 DEFAULT_LIST_LIMIT = 10
+RESOURCE_NOT_FOUND_ERROR_CODE = "resource_not_found"
+MEMBERSHIP_NOT_FOUND_RESPONSE_TEXT = "Organization membership not found."
+
+
+def _create_membership_not_found_error(organization_id: str, user_id: str) -> ClerkErrors:
+    """Create a ClerkErrors exception for missing memberships."""
+
+    return create_clerk_error(
+        status_code=404,
+        response_text=MEMBERSHIP_NOT_FOUND_RESPONSE_TEXT,
+        code=RESOURCE_NOT_FOUND_ERROR_CODE,
+        message=f"Organization membership not found: {organization_id}:{user_id}",
+    )
 
 
 class MockOrganizationMembershipsClient:
@@ -33,19 +51,24 @@ class MockOrganizationMembershipsClient:
         organization_id: str,
         user_id: str,
         role: str,
-        public_metadata: dict[str, Any] | None = None,
-        private_metadata: dict[str, Any] | None = None,
-    ) -> MockOrganizationMembership:
+        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
         """Create a new organization membership."""
 
+        _ = retries, server_url, timeout_ms, http_headers
         key = self._make_key(organization_id, user_id)
         membership = MockOrganizationMembership(
-            id=f"orgmem_{organization_id}_{user_id}",
+            id=generate_clerk_id("orgmem"),
             organization_id=organization_id,
             user_id=user_id,
             role=role,
-            public_metadata=public_metadata or {},
-            private_metadata=private_metadata or {},
+            public_metadata={} if public_metadata is UNSET else public_metadata,
+            private_metadata={} if private_metadata is UNSET else private_metadata,
         )
         self._memberships[key] = membership
 
@@ -57,9 +80,13 @@ class MockOrganizationMembershipsClient:
         organization_id: str,
         user_id: str,
         role: str,
-        public_metadata: dict[str, Any] | None = None,
-        private_metadata: dict[str, Any] | None = None,
-    ) -> MockOrganizationMembership:
+        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
         """Async version of create."""
 
         return self.create(
@@ -68,6 +95,10 @@ class MockOrganizationMembershipsClient:
             role=role,
             public_metadata=public_metadata,
             private_metadata=private_metadata,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
         )
 
     def get(
@@ -81,6 +112,20 @@ class MockOrganizationMembershipsClient:
         key = self._make_key(organization_id, user_id)
 
         return self._memberships.get(key)
+
+    def do_request(
+        self,
+        hook_ctx,
+        request,
+        error_status_codes,
+        stream=False,
+        retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
+    ) -> httpx.Response:
+        """Return a generic successful response for low-level SDK hooks."""
+
+        _ = hook_ctx, request, error_status_codes, stream, retry_config
+
+        return build_http_response()
 
     def _public_user_data_str(
         self,
@@ -112,9 +157,7 @@ class MockOrganizationMembershipsClient:
         if not values:
             return memberships
 
-        normalized_values = (
-            {value.lower() for value in values} if case_insensitive else set(values)
-        )
+        normalized_values = {value.lower() for value in values} if case_insensitive else set(values)
         filtered_memberships: list[MockOrganizationMembership] = []
 
         for membership in memberships:
@@ -122,9 +165,7 @@ class MockOrganizationMembershipsClient:
             if field_value is None:
                 continue
 
-            normalized_field_value = (
-                field_value.lower() if case_insensitive else field_value
-            )
+            normalized_field_value = field_value.lower() if case_insensitive else field_value
 
             if normalized_field_value in normalized_values:
                 filtered_memberships.append(membership)
@@ -199,35 +240,26 @@ class MockOrganizationMembershipsClient:
             return memberships
 
         include_user_ids = {
-            membership_user_id[1:]
-            for membership_user_id in user_ids
-            if membership_user_id.startswith("+")
+            membership_user_id[1:] for membership_user_id in user_ids if membership_user_id.startswith("+")
         }
         exclude_user_ids = {
-            membership_user_id[1:]
-            for membership_user_id in user_ids
-            if membership_user_id.startswith("-")
+            membership_user_id[1:] for membership_user_id in user_ids if membership_user_id.startswith("-")
         }
         exact_user_ids = {
             membership_user_id
             for membership_user_id in user_ids
-            if not membership_user_id.startswith("+")
-            and not membership_user_id.startswith("-")
+            if not membership_user_id.startswith("+") and not membership_user_id.startswith("-")
         }
         filtered_memberships = memberships
 
         if include_user_ids or exact_user_ids:
             allowed_user_ids = include_user_ids | exact_user_ids
             filtered_memberships = [
-                membership
-                for membership in filtered_memberships
-                if membership.user_id in allowed_user_ids
+                membership for membership in filtered_memberships if membership.user_id in allowed_user_ids
             ]
 
         return [
-            membership
-            for membership in filtered_memberships
-            if membership.user_id not in exclude_user_ids
+            membership for membership in filtered_memberships if membership.user_id not in exclude_user_ids
         ]
 
     def _apply_ordering(
@@ -274,12 +306,12 @@ class MockOrganizationMembershipsClient:
         *,
         organization_id: str,
         order_by: str | None = None,
-        user_id: list[str] | None = None,
-        email_address: list[str] | None = None,
-        phone_number: list[str] | None = None,
-        username: list[str] | None = None,
-        web3_wallet: list[str] | None = None,
-        role: list[str] | None = None,
+        user_id: List[str] | None = None,
+        email_address: List[str] | None = None,
+        phone_number: List[str] | None = None,
+        username: List[str] | None = None,
+        web3_wallet: List[str] | None = None,
+        role: List[str] | None = None,
         query: str | None = None,
         email_address_query: str | None = None,
         phone_number_query: str | None = None,
@@ -291,9 +323,14 @@ class MockOrganizationMembershipsClient:
         created_at_after: int | None = None,
         limit: int | None = DEFAULT_LIST_LIMIT,
         offset: int | None = 0,
-    ) -> MockOrganizationMembershipsResponse:
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMemberships:
         """List memberships with Clerk-compatible filter parameters."""
 
+        _ = retries, server_url, timeout_ms, http_headers
         memberships: list[MockOrganizationMembership] = [
             membership
             for membership in self._memberships.values()
@@ -303,9 +340,7 @@ class MockOrganizationMembershipsClient:
 
         if role:
             role_set = set(role)
-            memberships = [
-                membership for membership in memberships if membership.role in role_set
-            ]
+            memberships = [membership for membership in memberships if membership.role in role_set]
 
         if query:
             query_lower = query.lower()
@@ -346,30 +381,22 @@ class MockOrganizationMembershipsClient:
 
         if last_active_at_before is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.updated_at < last_active_at_before
+                membership for membership in memberships if membership.updated_at < last_active_at_before
             ]
 
         if last_active_at_after is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.updated_at > last_active_at_after
+                membership for membership in memberships if membership.updated_at > last_active_at_after
             ]
 
         if created_at_before is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.created_at < created_at_before
+                membership for membership in memberships if membership.created_at < created_at_before
             ]
 
         if created_at_after is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.created_at > created_at_after
+                membership for membership in memberships if membership.created_at > created_at_after
             ]
 
         self._apply_ordering(memberships, order_by=order_by)
@@ -389,12 +416,12 @@ class MockOrganizationMembershipsClient:
         *,
         organization_id: str,
         order_by: str | None = None,
-        user_id: list[str] | None = None,
-        email_address: list[str] | None = None,
-        phone_number: list[str] | None = None,
-        username: list[str] | None = None,
-        web3_wallet: list[str] | None = None,
-        role: list[str] | None = None,
+        user_id: List[str] | None = None,
+        email_address: List[str] | None = None,
+        phone_number: List[str] | None = None,
+        username: List[str] | None = None,
+        web3_wallet: List[str] | None = None,
+        role: List[str] | None = None,
         query: str | None = None,
         email_address_query: str | None = None,
         phone_number_query: str | None = None,
@@ -406,11 +433,11 @@ class MockOrganizationMembershipsClient:
         created_at_after: int | None = None,
         limit: int | None = DEFAULT_LIST_LIMIT,
         offset: int | None = 0,
-        retries: Any = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> MockOrganizationMembershipsResponse:
+    ) -> models.OrganizationMemberships:
         """Async version of list."""
 
         _ = retries, server_url, timeout_ms, http_headers
@@ -437,24 +464,165 @@ class MockOrganizationMembershipsClient:
             offset=offset,
         )
 
+    def update(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        role: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
+        """Update a membership role."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        key = self._make_key(organization_id, user_id)
+        if key not in self._memberships:
+            raise _create_membership_not_found_error(organization_id, user_id)
+
+        membership = self._memberships[key]
+        updated_membership = membership.model_copy(update={"role": role})
+        self._memberships[key] = updated_membership
+
+        return updated_membership
+
+    def update_metadata(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        public_metadata: Dict[str, Any] | None = None,
+        private_metadata: Dict[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
+        """Merge metadata into a membership."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        key = self._make_key(organization_id, user_id)
+        if key not in self._memberships:
+            raise _create_membership_not_found_error(organization_id, user_id)
+
+        membership = self._memberships[key]
+        updated_membership = membership.model_copy(
+            update={
+                "public_metadata": {**(membership.public_metadata or {}), **(public_metadata or {})},
+                "private_metadata": {
+                    **(membership.private_metadata or {}),
+                    **(private_metadata or {}),
+                },
+            }
+        )
+        self._memberships[key] = updated_membership
+
+        return updated_membership
+
+    async def update_async(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        role: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
+        """Async version of update."""
+
+        return self.update(
+            organization_id=organization_id,
+            user_id=user_id,
+            role=role,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def update_metadata_async(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        public_metadata: Dict[str, Any] | None = None,
+        private_metadata: Dict[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
+        """Async version of update_metadata."""
+
+        return self.update_metadata(
+            organization_id=organization_id,
+            user_id=user_id,
+            public_metadata=public_metadata,
+            private_metadata=private_metadata,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
     def delete(
         self,
         *,
         organization_id: str,
         user_id: str,
-    ) -> MockOrganizationMembership | None:
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
         """Delete a membership."""
 
+        _ = retries, server_url, timeout_ms, http_headers
         key = self._make_key(organization_id, user_id)
+        if key not in self._memberships:
+            raise _create_membership_not_found_error(organization_id, user_id)
 
-        return self._memberships.pop(key, None)
+        return self._memberships.pop(key)
 
     async def delete_async(
         self,
         *,
         organization_id: str,
         user_id: str,
-    ) -> MockOrganizationMembership | None:
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
         """Async version of delete."""
 
-        return self.delete(organization_id=organization_id, user_id=user_id)
+        return self.delete(
+            organization_id=organization_id,
+            user_id=user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def do_request_async(
+        self,
+        hook_ctx,
+        request,
+        error_status_codes,
+        stream=False,
+        retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
+    ) -> httpx.Response:
+        """Async version of do_request."""
+
+        return self.do_request(
+            hook_ctx,
+            request,
+            error_status_codes,
+            stream=stream,
+            retry_config=retry_config,
+        )

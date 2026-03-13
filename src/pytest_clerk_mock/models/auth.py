@@ -48,3 +48,11 @@ class MockAuthResult(BaseModel):
         """Create a signed-out auth result."""
 
         return cls(is_signed_in=False, payload={})
+
+
+class AuthSnapshot(BaseModel):
+    """Snapshot of authentication state for restoration."""
+
+    user_id: str | None
+    org_id: str | None
+    org_role: str

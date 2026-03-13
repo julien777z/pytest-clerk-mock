@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+
+# SQLAlchemy Rules
+
+## Query Construction
+
+- Prefer ORM/Core query builders (`select`, `update`, `delete`) and model/table helpers (`get_one`, `get_all`, `query_count`, `upsert`) over handcrafted SQL.
+- Do not write manual SQL strings for standard reads/writes in tests or service logic.
+- Use model columns and SQLAlchemy expressions directly instead of `text("SELECT ...")` patterns.
+
+## DDL and Schema Operations
+
+- Use SQLAlchemy DDL constructs when available (for example `CreateSchema`) instead of hand-built SQL strings.
+- Keep schema/table operations structured through metadata and SQLAlchemy primitives.
+
+## Raw SQL Escape Hatch
+
+- Raw SQL is only acceptable for true edge cases that cannot be expressed cleanly with SQLAlchemy builders.
+- When raw SQL is unavoidable, scope it narrowly and document why SQLAlchemy primitives were insufficient.

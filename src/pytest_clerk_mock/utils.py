@@ -1,24 +1,24 @@
+import secrets
 from contextlib import contextmanager
 from http import HTTPStatus
-from typing import Final, Generator
+from typing import Any, Final, Generator, TypeVar
 from unittest.mock import MagicMock, patch
 
 import httpx
 from clerk_backend_api import SDKError
+from clerk_backend_api import models
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
-from pydantic import BaseModel
+from clerk_backend_api.types import UNSET, OptionalNullable
+
+from pytest_clerk_mock.models.user import MockClerkUserResponse
 
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
 DEFAULT_ERROR_TEXT: Final[str] = "Mock error"
 DEFAULT_ERROR_CODE: Final[str] = "mock_error"
 
-
-class MockClerkUserResponse(BaseModel):
-    """Simple mock Clerk user returned from create_async."""
-
-    id: str
+RequestValueT = TypeVar("RequestValueT")
 
 
 class MockClerkUserListResponse:
@@ -35,6 +35,17 @@ class MockClerkUserListResponse:
 
     def __bool__(self) -> bool:
         return len(self.data) > 0
+
+
+def generate_clerk_id(prefix: str | None = None) -> str:
+    """Generate a random Clerk-style identifier."""
+
+    identifier = secrets.token_hex(12)
+
+    if prefix is None:
+        return identifier
+
+    return f"{prefix}_{identifier}"
 
 
 def create_clerk_error(
@@ -87,6 +98,68 @@ def create_clerk_errors(data: object | None = None) -> ClerkErrors:
         message=DEFAULT_ERROR_TEXT,
         response_text=DEFAULT_ERROR_TEXT,
     )
+
+
+def build_http_response() -> httpx.Response:
+    """Build a generic successful HTTP response for low-level SDK hooks."""
+
+    return httpx.Response(status_code=HTTPStatus.OK, json={})
+
+
+def build_commerce_subscription(*, payer_id: str) -> models.CommerceSubscription:
+    """Build a minimal CommerceSubscription payload."""
+
+    return models.CommerceSubscription.model_validate(
+        {
+            "object": "commerce_subscription",
+            "id": generate_clerk_id("sub"),
+            "instance_id": generate_clerk_id("inst"),
+            "status": "active",
+            "payer_id": payer_id,
+            "created_at": 0,
+            "updated_at": 0,
+            "active_at": 0,
+            "past_due_at": None,
+            "subscription_items": [
+                {
+                    "object": "commerce_subscription_item",
+                    "id": generate_clerk_id("subitem"),
+                    "instance_id": generate_clerk_id("inst"),
+                    "status": "active",
+                    "plan_id": None,
+                    "plan_period": "month",
+                    "payer_id": payer_id,
+                    "is_free_trial": False,
+                    "period_start": 0,
+                    "period_end": None,
+                    "canceled_at": None,
+                    "past_due_at": None,
+                    "ended_at": None,
+                }
+            ],
+        }
+    )
+
+
+def resolve_optional_nullable(value: OptionalNullable[RequestValueT]) -> RequestValueT | None:
+    """Resolve Clerk optional-nullable values into plain Python values."""
+
+    if value is UNSET:
+        return None
+
+    return value
+
+
+def get_request_value(request: object, key: str, default: Any = None) -> Any:
+    """Read a field from either a Clerk request model or typed dict."""
+
+    if isinstance(request, dict):
+        return request.get(key, default)
+
+    if hasattr(request, "model_dump"):
+        return request.model_dump(mode="python").get(key, default)
+
+    return getattr(request, key, default)
 
 
 @contextmanager

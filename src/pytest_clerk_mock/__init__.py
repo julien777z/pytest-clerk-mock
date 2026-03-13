@@ -1,5 +1,5 @@
 from pytest_clerk_mock.client import MockClerkClient
-from pytest_clerk_mock.helpers import (
+from pytest_clerk_mock.utils import (
     create_clerk_errors,
     mock_clerk_user_creation,
     mock_clerk_user_creation_failure,
@@ -11,7 +11,12 @@ from pytest_clerk_mock.models.organization import (
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
 )
-from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
+from pytest_clerk_mock.models.user import (
+    MockEmailAddress,
+    MockListResponse,
+    MockPhoneNumber,
+    MockUser,
+)
 from pytest_clerk_mock.plugin import (
     create_mock_clerk_fixture,
     mock_clerk,
@@ -23,8 +28,6 @@ from pytest_clerk_mock.services.organization_memberships import (
 from pytest_clerk_mock.services.organizations import (
     MockOrganizationsClient,
 )
-from pytest_clerk_mock.services.users import MockListResponse
-
 __all__ = [
     "create_clerk_errors",
     "create_mock_clerk_fixture",

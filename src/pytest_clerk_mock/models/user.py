@@ -53,6 +53,7 @@ class MockUser(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    object: str = "user"
     id: str
     external_id: str | None = None
     primary_email_address_id: str | None = None
@@ -61,6 +62,7 @@ class MockUser(BaseModel):
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
+    locale: str | None = None
     profile_image_url: str = ""
     image_url: str = ""
     has_image: bool = False
@@ -76,7 +78,9 @@ class MockUser(BaseModel):
     totp_enabled: bool = False
     backup_code_enabled: bool = False
     external_accounts: list[dict] = Field(default_factory=list)
+    enterprise_accounts: list[dict] = Field(default_factory=list)
     saml_accounts: list[dict] = Field(default_factory=list)
+    organization_memberships: list[dict] = Field(default_factory=list)
     last_sign_in_at: int | None = None
     banned: bool = False
     locked: bool = False
@@ -89,4 +93,19 @@ class MockUser(BaseModel):
     last_active_at: int | None = None
     create_organizations_limit: int | None = None
     legal_accepted_at: int | None = None
+    password_last_updated_at: int | None = None
+    mfa_disabled_at: int | None = None
+    mfa_enabled_at: int | None = None
+    bypass_client_trust: bool = False
 
+
+class MockClerkUserResponse(BaseModel):
+    """Simple mock Clerk user returned from create_async."""
+
+    id: str
+
+
+class MockListResponse(BaseModel):
+    """Response wrapper for list operations, matching Clerk SDK structure."""
+
+    data: list[MockUser] = Field(default_factory=list)

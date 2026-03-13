@@ -8,9 +8,7 @@ import pytest
 
 from pytest_clerk_mock.client import MockClerkClient
 
-_current_mock_client: ContextVar[MockClerkClient | None] = ContextVar(
-    "_current_mock_client", default=None
-)
+_current_mock_client: ContextVar[MockClerkClient | None] = ContextVar("_current_mock_client", default=None)
 
 
 def _get_current_client() -> MockClerkClient:
@@ -72,9 +70,7 @@ class _MockOrganizationMembershipsProxy:
 _organization_memberships_proxy = _MockOrganizationMembershipsProxy()
 
 
-def _mock_organization_memberships_class(
-    *args: Any, **kwargs: Any
-) -> _MockOrganizationMembershipsProxy:
+def _mock_organization_memberships_class(*args: Any, **kwargs: Any) -> _MockOrganizationMembershipsProxy:
     """Mock OrganizationMemberships class that returns the proxy."""
 
     return _organization_memberships_proxy

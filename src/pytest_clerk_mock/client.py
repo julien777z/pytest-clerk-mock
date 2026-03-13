@@ -13,6 +13,7 @@ from pytest_clerk_mock.services.organization_memberships import (
 )
 from pytest_clerk_mock.services.organizations import MockOrganizationsClient
 from pytest_clerk_mock.services.users import MockUsersClient
+from pytest_clerk_mock.utils import generate_clerk_id
 
 
 class MockClerkClient:
@@ -183,7 +184,7 @@ class MockClerkClient:
         """
 
         membership = MockOrganizationMembership(
-            id=f"orgmem_{user_id}_{org_id}",
+            id=generate_clerk_id("orgmem"),
             role=role,
             organization=MockOrganization(id=org_id, name=org_name),
         )

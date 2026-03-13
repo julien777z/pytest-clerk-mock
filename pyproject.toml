@@ -25,11 +25,22 @@ packages = [{include = "pytest_clerk_mock", from = "src"}]
 pytest = "^8.0.0"
 pytest-asyncio = "^0.24.0"
 pytest-cov = "^6.0.0"
+ruff = "^0.15.4"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+markers = [
+    "contract: contract parity tests",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
