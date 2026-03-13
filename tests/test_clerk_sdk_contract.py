@@ -127,6 +127,41 @@ def _iter_referenced_model_types(callable_obj: Any) -> set[type[object]]:
     }
 
 
+def _build_model_field_report(
+    real_model: type[object],
+    mock_model: type[object],
+) -> dict[str, set[str]]:
+    """Return a field coverage report for a real Clerk model and mock model."""
+
+    real_fields = set(real_model.model_fields)
+    mock_fields = set(mock_model.model_fields)
+
+    return {
+        "missing_fields": real_fields - mock_fields,
+        "extra_fields": mock_fields - real_fields,
+    }
+
+
+def assert_model_fields_cover_real_model(
+    real_model: type[object],
+    mock_model: type[object],
+    *,
+    allowed_extra_fields: frozenset[str],
+) -> None:
+    """Assert that a mock model covers the real Clerk model fields."""
+
+    field_report = _build_model_field_report(real_model, mock_model)
+
+    assert field_report["missing_fields"] == set(), (
+        f"{mock_model.__name__} is missing Clerk fields from {real_model.__name__}: "
+        f"{sorted(field_report['missing_fields'])!r}"
+    )
+    assert field_report["extra_fields"] <= set(allowed_extra_fields), (
+        f"{mock_model.__name__} has unexpected extra fields compared with {real_model.__name__}: "
+        f"{sorted(field_report['extra_fields'])!r}"
+    )
+
+
 def assert_signature_matches(real_callable: Any, mock_callable: Any) -> None:
     """Assert that two public callables have identical signatures."""
 
@@ -233,17 +268,57 @@ class TestTypeContracts:
     ) -> None:
         """Test that exported mock models include the real Clerk model fields."""
 
-        real_fields = set(real_model.model_fields)
-        mock_fields = set(mock_model.model_fields)
+        assert_model_fields_cover_real_model(
+            real_model,
+            mock_model,
+            allowed_extra_fields=allowed_extra_fields,
+        )
 
-        assert real_fields - mock_fields == set(), (
-            f"{mock_model.__name__} is missing Clerk fields from {real_model.__name__}: "
-            f"{sorted(real_fields - mock_fields)!r}"
-        )
-        assert mock_fields - real_fields <= set(allowed_extra_fields), (
-            f"{mock_model.__name__} has unexpected extra fields compared with {real_model.__name__}: "
-            f"{sorted(mock_fields - real_fields)!r}"
-        )
+
+class TestModelFieldCoverageUtils:
+    """Assert that model field coverage helpers report missing fields clearly."""
+
+    def test_model_field_report_lists_missing_fields(self) -> None:
+        """Test that the field report includes omitted Clerk-style fields."""
+
+        class _RealModel:
+            model_fields = {
+                "id": object(),
+                "bypass_client_trust": object(),
+            }
+
+        class _MockModel:
+            model_fields = {
+                "id": object(),
+            }
+
+        field_report = _build_model_field_report(_RealModel, _MockModel)
+
+        assert field_report["missing_fields"] == {"bypass_client_trust"}
+        assert field_report["extra_fields"] == set()
+
+    def test_model_field_assertion_mentions_missing_field_name(self) -> None:
+        """Test that the field assertion message names a missing field clearly."""
+
+        class _RealModel:
+            __name__ = "RealUser"
+            model_fields = {
+                "id": object(),
+                "bypass_client_trust": object(),
+            }
+
+        class _MockModel:
+            __name__ = "MockUser"
+            model_fields = {
+                "id": object(),
+            }
+
+        with pytest.raises(AssertionError, match="bypass_client_trust"):
+            assert_model_fields_cover_real_model(
+                _RealModel,
+                _MockModel,
+                allowed_extra_fields=frozenset(),
+            )
 
 
 class TestMockClerkClientContract:
