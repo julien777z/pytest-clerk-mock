@@ -77,11 +77,7 @@ def _mock_organization_memberships_class(*args: Any, **kwargs: Any) -> _MockOrga
 
 
 def _apply_sdk_patches(stack: ExitStack) -> None:
-    """Apply patches to clerk_backend_api SDK internals.
-
-    This patches at the SDK level so it works regardless of when/how
-    the Clerk client was instantiated.
-    """
+    """Apply Clerk SDK patches for the active mock client."""
 
     stack.enter_context(
         patch(
@@ -128,24 +124,7 @@ def _apply_sdk_patches(stack: ExitStack) -> None:
 
 @pytest.fixture
 def mock_clerk() -> Generator[MockClerkClient, None, None]:
-    """Fixture that provides a mock Clerk client.
-
-    The client is reset after each test to ensure isolation.
-    Patches clerk_backend_api SDK internals to intercept all Clerk operations.
-
-    Yields:
-        MockClerkClient instance configured with default auth state.
-
-    Example:
-        def test_something(mock_clerk):
-            # Configure auth state
-            mock_clerk.configure_auth("user_123", "org_456")
-
-            # Or use context manager for temporary user switch
-            with mock_clerk.as_user("user_456", "org_789"):
-                # Test as different user
-                pass
-    """
+    """Provide a patched mock Clerk client fixture."""
 
     client = MockClerkClient()
     token = _current_mock_client.set(client)
@@ -162,33 +141,11 @@ def mock_clerk() -> Generator[MockClerkClient, None, None]:
 
 @contextmanager
 def mock_clerk_backend(
-    patch_targets: list[str] | None = None,
     default_user_id: str | None = "user_test_owner",
     default_org_id: str | None = "org_test_123",
     default_org_role: str = "org:admin",
 ) -> Generator[MockClerkClient, None, None]:
-    """Context manager for mocking Clerk backend.
-
-    This provides a moto-like API for mocking Clerk in tests without using fixtures.
-    Patches clerk_backend_api SDK internals so it works regardless of when the
-    Clerk client was instantiated.
-
-    Args:
-        patch_targets: Deprecated. No longer needed - SDK is patched at the internal level.
-        default_user_id: Default user ID for authentication (None for unauthenticated)
-        default_org_id: Default organization ID
-        default_org_role: Default organization role
-
-    Yields:
-        MockClerkClient instance
-
-    Example:
-        with mock_clerk_backend() as mock:
-            mock.configure_auth("user_123", "org_456")
-            # Your test code here
-    """
-
-    del patch_targets
+    """Provide a patched mock Clerk client context manager."""
 
     client = MockClerkClient(
         default_user_id=default_user_id,
@@ -208,35 +165,12 @@ def mock_clerk_backend(
 
 
 def create_mock_clerk_fixture(
-    patch_targets: list[str] | None = None,
     default_user_id: str | None = "user_test_owner",
     default_org_id: str | None = "org_test_123",
     default_org_role: str = "org:admin",
     autouse: bool = False,
 ):
-    """Factory function to create a mock_clerk fixture with custom configuration.
-
-    Patches clerk_backend_api SDK internals so it works regardless of when the
-    Clerk client was instantiated.
-
-    Args:
-        patch_targets: Deprecated. No longer needed - SDK is patched at the internal level.
-        default_user_id: Default user ID for authentication
-        default_org_id: Default organization ID
-        default_org_role: Default organization role
-        autouse: Whether to automatically use the fixture in all tests
-
-    Returns:
-        A pytest fixture function
-
-    Example:
-        # In conftest.py
-        from pytest_clerk_mock import create_mock_clerk_fixture
-
-        mock_clerk = create_mock_clerk_fixture(autouse=True)
-    """
-
-    del patch_targets
+    """Create a configured `mock_clerk` fixture."""
 
     @pytest.fixture(autouse=autouse)
     def custom_mock_clerk() -> Generator[MockClerkClient, None, None]:

@@ -66,15 +66,7 @@ class MockClerkClient:
         request: Any,
         options: Any = None,
     ) -> MockAuthResult:
-        """Mock implementation of Clerk's authenticate_request.
-
-        Args:
-            request: The FastAPI/Starlette request object (ignored in mock)
-            options: AuthenticateRequestOptions (ignored in mock)
-
-        Returns:
-            MockAuthResult with current auth state
-        """
+        """Return the current mock authentication result."""
 
         return self._auth_state.get_result()
 
@@ -84,13 +76,7 @@ class MockClerkClient:
         org_id: str | None = None,
         org_role: str = "org:admin",
     ) -> None:
-        """Configure the authentication state.
-
-        Args:
-            user_id: The user ID to return in auth results (None for unauthenticated)
-            org_id: The organization ID for the authenticated user
-            org_role: The role of the user in the organization
-        """
+        """Configure the active authentication state."""
 
         self._auth_state.configure(user_id, org_id, org_role)
 
@@ -100,13 +86,7 @@ class MockClerkClient:
         org_id: str | None = None,
         org_role: str = "org:admin",
     ) -> None:
-        """Configure auth state using a predefined MockClerkUser.
-
-        Args:
-            user: The MockClerkUser enum value
-            org_id: The organization ID for the authenticated user
-            org_role: The role of the user in the organization
-        """
+        """Configure authentication state from a predefined mock user."""
 
         self._auth_state.configure(user.value, org_id, org_role)
 
@@ -117,21 +97,7 @@ class MockClerkClient:
         org_id: str | None = None,
         org_role: str = "org:admin",
     ) -> Generator[None, None, None]:
-        """Context manager to temporarily switch to a different user.
-
-        Args:
-            user_id: The user ID to use within the context
-            org_id: The organization ID for the user
-            org_role: The role of the user in the organization
-
-        Yields:
-            None
-
-        Example:
-            with mock_clerk.as_user("user_123", org_id="org_456"):
-                # Requests will be authenticated as user_123
-                pass
-        """
+        """Temporarily switch authentication state to another user."""
 
         previous = self._auth_state.snapshot()
         self._auth_state.configure(user_id, org_id, org_role)
@@ -148,18 +114,7 @@ class MockClerkClient:
         org_id: str | None = None,
         org_role: str = "org:admin",
     ) -> Generator[None, None, None]:
-        """Context manager using predefined MockClerkUser.
-
-        Args:
-            user: The MockClerkUser enum value
-            org_id: The organization ID for the user
-            org_role: The role of the user in the organization
-
-        Example:
-            with mock_clerk.as_clerk_user(MockClerkUser.TEAM_OWNER, org_id="org_123"):
-                # Requests will be authenticated as team owner
-                pass
-        """
+        """Temporarily switch authentication state to a predefined mock user."""
 
         with self.as_user(user.value, org_id, org_role):
             yield
@@ -171,17 +126,7 @@ class MockClerkClient:
         role: str = "org:member",
         org_name: str = "",
     ) -> MockOrganizationMembership:
-        """Add an organization membership for a user.
-
-        Args:
-            user_id: The user ID to add membership for
-            org_id: The organization ID
-            role: The role in the organization
-            org_name: Optional organization name
-
-        Returns:
-            The created membership
-        """
+        """Add an organization membership for a user."""
 
         membership = MockOrganizationMembership(
             id=generate_clerk_id("orgmem"),
