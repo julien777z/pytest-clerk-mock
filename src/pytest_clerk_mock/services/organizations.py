@@ -102,7 +102,9 @@ class MockOrganizationsClient:
     def create(
         self,
         *,
-        request: models.CreateOrganizationRequestBody | dict[str, Any] | None = None,
+        request: (
+            models.CreateOrganizationRequestBody | models.CreateOrganizationRequestBodyTypedDict | None
+        ) = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -372,7 +374,9 @@ class MockOrganizationsClient:
     async def create_async(
         self,
         *,
-        request: models.CreateOrganizationRequestBody | dict[str, Any] | None = None,
+        request: (
+            models.CreateOrganizationRequestBody | models.CreateOrganizationRequestBodyTypedDict | None
+        ) = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,

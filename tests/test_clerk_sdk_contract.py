@@ -1,6 +1,5 @@
 import inspect
-from types import UnionType
-from typing import Any, Final, Protocol, Union, get_args, get_origin, get_type_hints, is_typeddict
+from typing import Any, Final, Protocol, get_type_hints
 
 import pytest
 from clerk_backend_api import models
@@ -100,34 +99,12 @@ def _build_signature_spec(
             (
                 name,
                 parameter.kind,
-                _normalize_annotation(hints.get(name, parameter.annotation)),
+                hints.get(name, parameter.annotation),
                 parameter.default,
             )
         )
 
-    return parameters, _normalize_annotation(hints.get(RETURN_KEY, signature.return_annotation))
-
-
-def _normalize_annotation(annotation: Any) -> Any:
-    """Normalize equivalent type annotations for comparison."""
-
-    if is_typeddict(annotation) or (
-        isinstance(annotation, type)
-        and issubclass(annotation, dict)
-        and getattr(annotation, "__annotations__", None) is not None
-    ):
-        return dict[str, Any]
-
-    origin = get_origin(annotation)
-    if origin in (UnionType, Union):
-        normalized_args = [_normalize_annotation(arg) for arg in get_args(annotation)]
-        normalized_union = normalized_args[0]
-        for arg in normalized_args[1:]:
-            normalized_union = normalized_union | arg
-
-        return normalized_union
-
-    return annotation
+    return parameters, hints.get(RETURN_KEY, signature.return_annotation)
 
 
 def _build_pydantic_field_spec(model_cls: type[models.GetUserListRequest]) -> dict[str, tuple[Any, Any]]:
@@ -176,7 +153,10 @@ def assert_signature_matches(real_callable: Any, mock_callable: Any) -> None:
     )
 
 
-def assert_pydantic_model_fields_match(real_model: type[object], mock_protocol_or_model: type[object]) -> None:
+def assert_pydantic_model_fields_match(
+    real_model: type[object],
+    mock_protocol_or_model: type[object],
+) -> None:
     """Assert that request-model field names, types, and defaults match exactly."""
 
     real_fields = _build_pydantic_field_spec(real_model)
@@ -205,7 +185,7 @@ def assert_typed_dict_matches(real_typed_dict: type[object], mock_typed_dict: ty
 
 
 class TestUsersMethodParity:
-    """Assert strict parity for the public Users SDK surface."""
+    """Assert strict Contract for the public Users SDK surface."""
 
     @pytest.mark.parametrize("method_name", USERS_METHOD_NAMES)
     def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
@@ -218,7 +198,7 @@ class TestUsersMethodParity:
 
 
 class TestOrganizationsMethodParity:
-    """Assert strict parity for the public Organizations SDK surface."""
+    """Assert strict Contract for the public Organizations SDK surface."""
 
     @pytest.mark.parametrize("method_name", ORGANIZATIONS_METHOD_NAMES)
     def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
@@ -231,7 +211,7 @@ class TestOrganizationsMethodParity:
 
 
 class TestOrganizationMembershipsMethodParity:
-    """Assert strict parity for the public OrganizationMemberships SDK surface."""
+    """Assert strict Contract for the public OrganizationMemberships SDK surface."""
 
     @pytest.mark.parametrize("method_name", ORGANIZATION_MEMBERSHIPS_METHOD_NAMES)
     def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
@@ -244,7 +224,7 @@ class TestOrganizationMembershipsMethodParity:
 
 
 class TestRequestModelParity:
-    """Assert strict parity for request model and request-shape types."""
+    """Assert strict Contract for request model and request-shape types."""
 
     def test_get_user_list_request_matches_mock_protocol(self) -> None:
         """Test that the user list request fields match the mock protocol exactly."""
@@ -261,4 +241,3 @@ class TestRequestModelParity:
             models.CreateOrganizationRequestBody,
             _get_public_attribute(organization_request_interfaces, "CreateOrganizationRequestBody"),
         )
-
