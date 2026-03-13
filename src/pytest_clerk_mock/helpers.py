@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from http import HTTPStatus
+import secrets
 from typing import Final, Generator
 from unittest.mock import MagicMock, patch
 
@@ -35,6 +36,17 @@ class MockClerkUserListResponse:
 
     def __bool__(self) -> bool:
         return len(self.data) > 0
+
+
+def generate_clerk_id(prefix: str | None = None) -> str:
+    """Generate a random Clerk-style identifier."""
+
+    identifier = secrets.token_hex(12)
+
+    if prefix is None:
+        return identifier
+
+    return f"{prefix}_{identifier}"
 
 
 def create_clerk_error(

@@ -89,4 +89,3 @@ class MockUser(BaseModel):
     last_active_at: int | None = None
     create_organizations_limit: int | None = None
     legal_accepted_at: int | None = None
-

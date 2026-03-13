@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -7,6 +9,10 @@ class MockOrganization(BaseModel):
     id: str
     name: str = ""
     slug: str = ""
+    created_by: str | None = None
+    public_metadata: dict[str, Any] = Field(default_factory=dict)
+    private_metadata: dict[str, Any] = Field(default_factory=dict)
+    max_allowed_memberships: int = 0
     created_at: int = 0
     updated_at: int = 0
 
@@ -31,4 +37,3 @@ class MockOrganizationMembershipsResponse(BaseModel):
 
     data: list[MockOrganizationMembership] = Field(default_factory=list)
     total_count: int = 0
-

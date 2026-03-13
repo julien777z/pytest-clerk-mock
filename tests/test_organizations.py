@@ -47,6 +47,78 @@ class TestOrganizationAdd:
         assert org.slug == ""
 
 
+class TestOrganizationCreate:
+    """Tests for creating organizations."""
+
+    def test_create_organization(self, mock_clerk: MockClerkClient) -> None:
+        """Test that create generates an organization id and stores Clerk-style fields."""
+
+        org = mock_clerk.organizations.create(
+            request={
+                "name": "Created Org",
+                "created_by": "user_creator",
+                "slug": "created-org",
+                "public_metadata": {"team": "platform"},
+                "private_metadata": {"from_test": "e2e"},
+                "max_allowed_memberships": 25,
+            }
+        )
+
+        assert org.id.startswith("org_")
+        assert org.name == "Created Org"
+        assert org.created_by == "user_creator"
+        assert org.slug == "created-org"
+        assert org.public_metadata == {"team": "platform"}
+        assert org.private_metadata == {"from_test": "e2e"}
+        assert org.max_allowed_memberships == 25
+
+    async def test_create_async_with_request(self, mock_clerk: MockClerkClient) -> None:
+        """Test that create_async accepts the Clerk-style request payload used in app tests."""
+
+        org = await mock_clerk.organizations.create_async(
+            request={
+                "name": "Async Org",
+                "created_by": "user_async_creator",
+                "slug": "async-org",
+                "public_metadata": {"team": "backend"},
+                "private_metadata": {"from_test": "e2e"},
+            }
+        )
+
+        stored = mock_clerk.organizations.get(org.id)
+
+        assert stored.id.startswith("org_")
+        assert stored.name == "Async Org"
+        assert stored.created_by == "user_async_creator"
+        assert stored.slug == "async-org"
+        assert stored.public_metadata == {"team": "backend"}
+        assert stored.private_metadata == {"from_test": "e2e"}
+
+    async def test_create_async_with_full_request_payload(self, mock_clerk: MockClerkClient) -> None:
+        """Test that create_async accepts the full supported request payload."""
+
+        org = await mock_clerk.organizations.create_async(
+            request={
+                "name": "Request Org",
+                "created_by": "user_request_creator",
+                "slug": "request-org",
+                "public_metadata": {"team": "platform"},
+                "private_metadata": {"source": "object"},
+                "max_allowed_memberships": 10,
+                "created_at": "2026-03-12T00:00:00Z",
+            }
+        )
+        stored = mock_clerk.organizations.get(org.id)
+
+        assert stored.id.startswith("org_")
+        assert stored.name == "Request Org"
+        assert stored.created_by == "user_request_creator"
+        assert stored.slug == "request-org"
+        assert stored.public_metadata == {"team": "platform"}
+        assert stored.private_metadata == {"source": "object"}
+        assert stored.max_allowed_memberships == 10
+
+
 class TestOrganizationGet:
     """Tests for getting organizations."""
 
@@ -95,4 +167,3 @@ class TestOrganizationReset:
 
         with pytest.raises(ClerkErrors):
             mock_clerk.organizations.get("org_2")
-

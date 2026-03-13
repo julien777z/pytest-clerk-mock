@@ -1,5 +1,3 @@
-from typing import Any
-
 from pydantic import BaseModel
 
 from pytest_clerk_mock.models.auth import MockAuthResult
@@ -67,4 +65,3 @@ class MockAuthState:
         self._user_id = None
         self._org_id = None
         self._org_role = "org:admin"
-

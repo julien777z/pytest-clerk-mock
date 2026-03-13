@@ -5,10 +5,6 @@ from pytest_clerk_mock import (
     MockAuthResult,
     MockClerkClient,
     MockClerkUser,
-    MockOrganization,
-    MockOrganizationMembership,
-    MockOrganizationMembershipsResponse,
-    create_mock_clerk_fixture,
     mock_clerk_backend,
 )
 
@@ -59,9 +55,7 @@ class TestAuthenticateRequest:
         assert result.payload["sub"] == "user_test_member"
         assert result.payload["org_id"] == "org_456"
 
-    def test_configure_auth_from_user_unauthenticated(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    def test_configure_auth_from_user_unauthenticated(self, mock_clerk: MockClerkClient) -> None:
         """MockClerkUser.UNAUTHENTICATED sets user as not signed in."""
 
         mock_clerk.configure_auth_from_user(MockClerkUser.UNAUTHENTICATED)
@@ -74,9 +68,7 @@ class TestAuthenticateRequest:
 class TestAsUserContextManager:
     """Tests for as_user context manager."""
 
-    def test_as_user_temporarily_changes_auth(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    def test_as_user_temporarily_changes_auth(self, mock_clerk: MockClerkClient) -> None:
         """as_user temporarily switches the authenticated user."""
 
         original_result = mock_clerk.authenticate_request(request=None)
@@ -132,15 +124,13 @@ class TestOrganizationMemberships:
             org_name="Test Org",
         )
 
-        assert membership.id == "orgmem_user_123_org_456"
+        assert membership.id.startswith("orgmem_")
         assert membership.role == "org:admin"
         assert membership.organization is not None
         assert membership.organization.id == "org_456"
         assert membership.organization.name == "Test Org"
 
-    async def test_get_organization_memberships_async(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    async def test_get_organization_memberships_async(self, mock_clerk: MockClerkClient) -> None:
         """get_organization_memberships_async returns configured memberships."""
 
         mock_clerk.add_organization_membership(
@@ -160,14 +150,10 @@ class TestOrganizationMemberships:
         assert memberships.data[0].organization.id == "org_456"
         assert memberships.data[1].organization.id == "org_789"
 
-    async def test_get_organization_memberships_empty(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    async def test_get_organization_memberships_empty(self, mock_clerk: MockClerkClient) -> None:
         """get_organization_memberships_async returns empty for unknown user."""
 
-        memberships = await mock_clerk._get_organization_memberships_async(
-            "user_unknown"
-        )
+        memberships = await mock_clerk._get_organization_memberships_async("user_unknown")
 
         assert len(memberships.data) == 0
         assert memberships.total_count == 0
@@ -261,9 +247,7 @@ class TestMockClerkUserEnum:
 class TestClerkErrorsOnDuplicateEmail:
     """Tests for ClerkErrors exception on duplicate email."""
 
-    def test_duplicate_email_raises_clerk_errors(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    def test_duplicate_email_raises_clerk_errors(self, mock_clerk: MockClerkClient) -> None:
         """Duplicate email raises ClerkErrors by default."""
 
         mock_clerk.users.create(email_address=["test@example.com"])
@@ -275,9 +259,7 @@ class TestClerkErrorsOnDuplicateEmail:
         assert len(errors) == 1
         assert errors[0].code == "form_identifier_exists"
 
-    async def test_duplicate_email_raises_clerk_errors_async(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    async def test_duplicate_email_raises_clerk_errors_async(self, mock_clerk: MockClerkClient) -> None:
         """Async create also raises ClerkErrors for duplicate email."""
 
         await mock_clerk.users.create_async(email_address=["test@example.com"])
@@ -304,9 +286,7 @@ class TestListAsyncResponse:
             "user2@example.com",
         ]
 
-    async def test_list_async_filter_by_email(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    async def test_list_async_filter_by_email(self, mock_clerk: MockClerkClient) -> None:
         """list_async with email filter returns filtered list."""
 
         await mock_clerk.users.create_async(email_address=["target@example.com"])

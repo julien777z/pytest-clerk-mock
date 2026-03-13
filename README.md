@@ -108,14 +108,22 @@ Available predefined users:
 from clerk_backend_api.models import ClerkErrors
 
 def test_organizations(mock_clerk):
-    mock_clerk.organizations.add("org_123", name="My Organization", slug="my-org")
+    created = mock_clerk.organizations.create(
+        name="My Organization",
+        created_by="user_123",
+        slug="my-org",
+        private_metadata={"from_test": "e2e"},
+    )
 
-    org = mock_clerk.organizations.get("org_123")
+    org = mock_clerk.organizations.get(created.id)
     assert org.name == "My Organization"
+    assert org.private_metadata["from_test"] == "e2e"
 
     with pytest.raises(ClerkErrors):
         mock_clerk.organizations.get("org_missing")
 ```
+
+`add()` is still available as a lightweight helper when you want to seed a known org id directly in a test.
 
 ## Organization Memberships
 
@@ -205,6 +213,7 @@ def test_with_context_manager():
 | Sync | Async |
 |------|-------|
 | `add()` | - |
+| `create()` | `create_async()` |
 | `get()` | `get_async()` |
 | `reset()` | - |
 

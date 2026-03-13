@@ -6,6 +6,35 @@ from pytest_clerk_mock.client import MockClerkClient
 RESOURCE_NOT_FOUND_CODE = "resource_not_found"
 
 
+class _UserListRequest:
+    """Provide a protocol-compatible user list request object."""
+
+    def __init__(
+        self,
+        *,
+        email_address: list[str] | None = None,
+        phone_number: list[str] | None = None,
+        external_id: list[str] | None = None,
+        username: list[str] | None = None,
+        user_id: list[str] | None = None,
+        query: str | None = None,
+        last_active_at_since: int | None = None,
+        limit: int = 10,
+        offset: int = 0,
+        order_by: str = "-created_at",
+    ) -> None:
+        self.email_address = email_address
+        self.phone_number = phone_number
+        self.external_id = external_id
+        self.username = username
+        self.user_id = user_id
+        self.query = query
+        self.last_active_at_since = last_active_at_since
+        self.limit = limit
+        self.offset = offset
+        self.order_by = order_by
+
+
 def _assert_resource_not_found(exc: ClerkErrors, *, user_id: str | None = None) -> None:
     """Assert ClerkErrors contains a single resource_not_found error."""
 
@@ -113,9 +142,7 @@ class TestUserCreate:
         assert len(errors) == 1
         assert errors[0].code == "form_identifier_exists"
 
-    def test_create_user_duplicate_email_case_insensitive(
-        self, mock_clerk: MockClerkClient
-    ) -> None:
+    def test_create_user_duplicate_email_case_insensitive(self, mock_clerk: MockClerkClient) -> None:
         """Email uniqueness check is case insensitive."""
 
         mock_clerk.users.create(email_address=["test@example.com"])
@@ -187,9 +214,7 @@ class TestUserList:
         """Filter by external_id returns matching users."""
 
         mock_clerk.users.create(email_address=["user1@example.com"], external_id="ext_1")
-        user2 = mock_clerk.users.create(
-            email_address=["user2@example.com"], external_id="ext_2"
-        )
+        user2 = mock_clerk.users.create(email_address=["user2@example.com"], external_id="ext_2")
 
         users = mock_clerk.users.list(external_id=["ext_2"])
 
@@ -436,6 +461,21 @@ class TestAsyncAPI:
         assert len(response) == 1
         assert response[0].id == user2.id
 
+    async def test_list_async_with_protocol_request_object(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Async list respects filters via a protocol-compatible request object."""
+
+        await mock_clerk.users.create_async(email_address=["user1@example.com"])
+        user2 = await mock_clerk.users.create_async(email_address=["user2@example.com"])
+
+        request = _UserListRequest(email_address=["user2@example.com"])
+        response = await mock_clerk.users.list_async(request=request)
+
+        assert len(response) == 1
+        assert response[0].id == user2.id
+
     async def test_update_async(self, mock_clerk: MockClerkClient) -> None:
         """Async update persists changes."""
 
@@ -489,14 +529,9 @@ class TestAsyncAPI:
     async def test_count_async_with_filter(self, mock_clerk: MockClerkClient) -> None:
         """Async count respects filters."""
 
-        await mock_clerk.users.create_async(
-            email_address=["user1@example.com"], external_id="ext_1"
-        )
-        await mock_clerk.users.create_async(
-            email_address=["user2@example.com"], external_id="ext_2"
-        )
+        await mock_clerk.users.create_async(email_address=["user1@example.com"], external_id="ext_1")
+        await mock_clerk.users.create_async(email_address=["user2@example.com"], external_id="ext_2")
 
         count = await mock_clerk.users.count_async(external_id=["ext_1"])
 
         assert count == 1
-

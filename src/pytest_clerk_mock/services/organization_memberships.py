@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from pytest_clerk_mock.helpers import generate_clerk_id
 from pytest_clerk_mock.models.organization import (
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
@@ -40,7 +41,7 @@ class MockOrganizationMembershipsClient:
 
         key = self._make_key(organization_id, user_id)
         membership = MockOrganizationMembership(
-            id=f"orgmem_{organization_id}_{user_id}",
+            id=generate_clerk_id("orgmem"),
             organization_id=organization_id,
             user_id=user_id,
             role=role,
@@ -112,9 +113,7 @@ class MockOrganizationMembershipsClient:
         if not values:
             return memberships
 
-        normalized_values = (
-            {value.lower() for value in values} if case_insensitive else set(values)
-        )
+        normalized_values = {value.lower() for value in values} if case_insensitive else set(values)
         filtered_memberships: list[MockOrganizationMembership] = []
 
         for membership in memberships:
@@ -122,9 +121,7 @@ class MockOrganizationMembershipsClient:
             if field_value is None:
                 continue
 
-            normalized_field_value = (
-                field_value.lower() if case_insensitive else field_value
-            )
+            normalized_field_value = field_value.lower() if case_insensitive else field_value
 
             if normalized_field_value in normalized_values:
                 filtered_memberships.append(membership)
@@ -199,35 +196,26 @@ class MockOrganizationMembershipsClient:
             return memberships
 
         include_user_ids = {
-            membership_user_id[1:]
-            for membership_user_id in user_ids
-            if membership_user_id.startswith("+")
+            membership_user_id[1:] for membership_user_id in user_ids if membership_user_id.startswith("+")
         }
         exclude_user_ids = {
-            membership_user_id[1:]
-            for membership_user_id in user_ids
-            if membership_user_id.startswith("-")
+            membership_user_id[1:] for membership_user_id in user_ids if membership_user_id.startswith("-")
         }
         exact_user_ids = {
             membership_user_id
             for membership_user_id in user_ids
-            if not membership_user_id.startswith("+")
-            and not membership_user_id.startswith("-")
+            if not membership_user_id.startswith("+") and not membership_user_id.startswith("-")
         }
         filtered_memberships = memberships
 
         if include_user_ids or exact_user_ids:
             allowed_user_ids = include_user_ids | exact_user_ids
             filtered_memberships = [
-                membership
-                for membership in filtered_memberships
-                if membership.user_id in allowed_user_ids
+                membership for membership in filtered_memberships if membership.user_id in allowed_user_ids
             ]
 
         return [
-            membership
-            for membership in filtered_memberships
-            if membership.user_id not in exclude_user_ids
+            membership for membership in filtered_memberships if membership.user_id not in exclude_user_ids
         ]
 
     def _apply_ordering(
@@ -303,9 +291,7 @@ class MockOrganizationMembershipsClient:
 
         if role:
             role_set = set(role)
-            memberships = [
-                membership for membership in memberships if membership.role in role_set
-            ]
+            memberships = [membership for membership in memberships if membership.role in role_set]
 
         if query:
             query_lower = query.lower()
@@ -346,30 +332,22 @@ class MockOrganizationMembershipsClient:
 
         if last_active_at_before is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.updated_at < last_active_at_before
+                membership for membership in memberships if membership.updated_at < last_active_at_before
             ]
 
         if last_active_at_after is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.updated_at > last_active_at_after
+                membership for membership in memberships if membership.updated_at > last_active_at_after
             ]
 
         if created_at_before is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.created_at < created_at_before
+                membership for membership in memberships if membership.created_at < created_at_before
             ]
 
         if created_at_after is not None:
             memberships = [
-                membership
-                for membership in memberships
-                if membership.created_at > created_at_after
+                membership for membership in memberships if membership.created_at > created_at_after
             ]
 
         self._apply_ordering(memberships, order_by=order_by)

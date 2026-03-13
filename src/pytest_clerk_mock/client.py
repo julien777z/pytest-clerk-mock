@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from typing import Any, Generator
 
+from pytest_clerk_mock.helpers import generate_clerk_id
 from pytest_clerk_mock.models.auth import MockAuthResult, MockClerkUser
 from pytest_clerk_mock.models.organization import (
     MockOrganization,
@@ -183,7 +184,7 @@ class MockClerkClient:
         """
 
         membership = MockOrganizationMembership(
-            id=f"orgmem_{user_id}_{org_id}",
+            id=generate_clerk_id("orgmem"),
             role=role,
             organization=MockOrganization(id=org_id, name=org_name),
         )

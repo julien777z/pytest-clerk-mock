@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import secrets
 from http import HTTPStatus
 from typing import Any, Final
 
 from clerk_backend_api.models import ClerkErrors
 from pydantic import BaseModel, Field
 
-from pytest_clerk_mock.helpers import create_clerk_error
+from pytest_clerk_mock.helpers import create_clerk_error, generate_clerk_id
+from pytest_clerk_mock.interfaces.user_requests import GetUserListRequestLike
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import MockEmailAddress, MockPhoneNumber, MockUser
 
@@ -22,12 +22,6 @@ class MockListResponse(BaseModel):
     """Response wrapper for list operations, matching Clerk SDK structure."""
 
     data: list[MockUser] = Field(default_factory=list)
-
-
-def _generate_id(prefix: str) -> str:
-    """Generate a Clerk-style ID with given prefix."""
-
-    return f"{prefix}_{secrets.token_hex(12)}"
 
 
 def _create_email_exists_error(email: str) -> ClerkErrors:
@@ -93,13 +87,13 @@ class MockUsersClient:
                 if email.lower() in self._emails:
                     raise _create_email_exists_error(email)
 
-        user_id = _generate_id("user")
+        user_id = generate_clerk_id("user")
         email_objects: list[MockEmailAddress] = []
         primary_email_id: str | None = None
 
         if email_address:
             for i, email in enumerate(email_address):
-                email_id = _generate_id("idn")
+                email_id = generate_clerk_id("idn")
                 email_obj = MockEmailAddress.create(email=email, email_id=email_id)
                 email_objects.append(email_obj)
                 self._emails[email.lower()] = user_id
@@ -112,7 +106,7 @@ class MockUsersClient:
 
         if phone_number:
             for i, phone in enumerate(phone_number):
-                phone_id = _generate_id("idn")
+                phone_id = generate_clerk_id("idn")
                 phone_obj = MockPhoneNumber.create(phone=phone, phone_id=phone_id)
                 phone_objects.append(phone_obj)
 
@@ -167,19 +161,11 @@ class MockUsersClient:
 
         if email_address:
             email_set = {e.lower() for e in email_address}
-            users = [
-                u
-                for u in users
-                if any(e.email_address.lower() in email_set for e in u.email_addresses)
-            ]
+            users = [u for u in users if any(e.email_address.lower() in email_set for e in u.email_addresses)]
 
         if phone_number:
             phone_set = set(phone_number)
-            users = [
-                u
-                for u in users
-                if any(p.phone_number in phone_set for p in u.phone_numbers)
-            ]
+            users = [u for u in users if any(p.phone_number in phone_set for p in u.phone_numbers)]
 
         if external_id:
             ext_id_set = set(external_id)
@@ -201,9 +187,7 @@ class MockUsersClient:
                 if (u.first_name and query_lower in u.first_name.lower())
                 or (u.last_name and query_lower in u.last_name.lower())
                 or (u.username and query_lower in u.username.lower())
-                or any(
-                    query_lower in e.email_address.lower() for e in u.email_addresses
-                )
+                or any(query_lower in e.email_address.lower() for e in u.email_addresses)
             ]
 
         reverse = order_by.startswith("-")
@@ -386,7 +370,7 @@ class MockUsersClient:
     async def list_async(
         self,
         *,
-        request: Any = None,
+        request: GetUserListRequestLike | None = None,
     ) -> list[MockUser]:
         """Async version of list.
 
@@ -403,14 +387,10 @@ class MockUsersClient:
         username = getattr(request, "username", None) if request else None
         user_id = getattr(request, "user_id", None) if request else None
         query = getattr(request, "query", None) if request else None
-        last_active_at_since = (
-            getattr(request, "last_active_at_since", None) if request else None
-        )
+        last_active_at_since = getattr(request, "last_active_at_since", None) if request else None
         limit = getattr(request, "limit", 10) if request else 10
         offset = getattr(request, "offset", 0) if request else 0
-        order_by = (
-            getattr(request, "order_by", "-created_at") if request else "-created_at"
-        )
+        order_by = getattr(request, "order_by", "-created_at") if request else "-created_at"
 
         return self.list(
             email_address=email_address,

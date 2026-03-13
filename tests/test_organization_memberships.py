@@ -13,7 +13,7 @@ class TestOrganizationMembershipsCreate:
             role="org:member",
         )
 
-        assert membership.id == "orgmem_org_123_user_456"
+        assert membership.id.startswith("orgmem_")
         assert membership.organization_id == "org_123"
         assert membership.user_id == "user_456"
         assert membership.role == "org:member"
@@ -52,7 +52,7 @@ class TestOrganizationMembershipsCreate:
             role="org:member",
         )
 
-        assert membership.id == "orgmem_org_async_user_async"
+        assert membership.id.startswith("orgmem_")
         assert membership.organization_id == "org_async"
         assert membership.user_id == "user_async"
 
