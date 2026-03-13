@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, Dict, Final, List, Mapping
+from typing import Any, Dict, Final, List, Mapping, Tuple
 
+import httpx
 from clerk_backend_api import models, utils
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
 from pytest_clerk_mock.models.organization import MockOrganization
 from pytest_clerk_mock.utils import (
+    build_commerce_subscription,
+    build_http_response,
     create_clerk_error,
     generate_clerk_id,
     get_request_value,
@@ -44,6 +47,34 @@ def _resolve_created_at(created_at: OptionalNullable[str]) -> int | None:
     return int(datetime.fromisoformat(normalized_created_at).timestamp() * 1000)
 
 
+def _build_organization_with_logo(
+    organization: MockOrganization,
+    *,
+    image_url: str,
+) -> models.OrganizationWithLogo:
+    """Build an OrganizationWithLogo payload from a stored mock organization."""
+
+    return models.OrganizationWithLogo.model_validate(
+        {
+            "object": "organization",
+            "id": organization.id,
+            "name": organization.name,
+            "slug": organization.slug,
+            "image_url": image_url,
+            "has_image": bool(image_url),
+            "max_allowed_memberships": organization.max_allowed_memberships,
+            "admin_delete_enabled": False,
+            "public_metadata": organization.public_metadata,
+            "created_at": organization.created_at,
+            "updated_at": organization.updated_at,
+            "private_metadata": organization.private_metadata,
+            "created_by": organization.created_by,
+            "last_active_at": 0,
+            "logo_url": image_url or None,
+        }
+    )
+
+
 class MockOrganizationsClient:
     """Mock implementation of Clerk's Organizations API."""
 
@@ -54,6 +85,19 @@ class MockOrganizationsClient:
         """Clear all stored organizations."""
 
         self._organizations.clear()
+
+    def _get_organization_or_error(self, organization_id: str) -> MockOrganization:
+        """Return a stored organization or raise the Clerk not-found error."""
+
+        if organization_id not in self._organizations:
+            raise create_clerk_error(
+                status_code=HTTPStatus.NOT_FOUND,
+                code=RESOURCE_NOT_FOUND_ERROR_CODE,
+                message=f"Organization not found: {organization_id}",
+                response_text=ORGANIZATION_NOT_FOUND_RESPONSE_TEXT,
+            )
+
+        return self._organizations[organization_id]
 
     def add(
         self,
@@ -171,15 +215,7 @@ class MockOrganizationsClient:
             timeout_ms,
             http_headers,
         )
-        if organization_id not in self._organizations:
-            raise create_clerk_error(
-                status_code=HTTPStatus.NOT_FOUND,
-                code=RESOURCE_NOT_FOUND_ERROR_CODE,
-                message=f"Organization not found: {organization_id}",
-                response_text=ORGANIZATION_NOT_FOUND_RESPONSE_TEXT,
-            )
-
-        return self._organizations[organization_id]
+        return self._get_organization_or_error(organization_id)
 
     def list(
         self,
@@ -311,6 +347,101 @@ class MockOrganizationsClient:
             slug=organization.slug,
         )
 
+    def delete_logo(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Delete an organization's logo."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+
+        organization = self._get_organization_or_error(organization_id)
+        updated_organization = organization.model_copy(update={"image_url": "", "has_image": False})
+        self._organizations[organization_id] = updated_organization
+
+        return updated_organization
+
+    def do_request(
+        self,
+        hook_ctx,
+        request,
+        error_status_codes,
+        stream=False,
+        retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
+    ) -> httpx.Response:
+        """Return a generic successful response for low-level SDK hooks."""
+
+        _ = hook_ctx, request, error_status_codes, stream, retry_config
+
+        return build_http_response()
+
+    def get_billing_subscription(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceSubscription:
+        """Return a placeholder billing subscription for an organization."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_organization_or_error(organization_id)
+
+        return build_commerce_subscription(payer_id=organization_id)
+
+    def merge_metadata(
+        self,
+        *,
+        organization_id: str,
+        public_metadata: Dict[str, Any] | None = None,
+        private_metadata: Dict[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Merge metadata into an organization."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        organization = self._get_organization_or_error(organization_id)
+
+        return self.update(
+            organization_id=organization_id,
+            public_metadata={**organization.public_metadata, **(public_metadata or {})},
+            private_metadata={**organization.private_metadata, **(private_metadata or {})},
+        )
+
+    def upload_logo(
+        self,
+        *,
+        organization_id: str,
+        file: models.UploadOrganizationLogoFile | models.UploadOrganizationLogoFileTypedDict,
+        uploader_user_id: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationWithLogo:
+        """Return an OrganizationWithLogo payload for the uploaded logo."""
+
+        _ = uploader_user_id, retries, server_url, timeout_ms, http_headers
+        organization = self._get_organization_or_error(organization_id)
+        image_name = get_request_value(file, "name") or "organization-logo"
+        image_url = f"https://img.clerk.mock/{organization_id}/{image_name}"
+        self._organizations[organization_id] = organization.model_copy(
+            update={"image_url": image_url, "has_image": True}
+        )
+        organization = self._organizations[organization_id]
+
+        return _build_organization_with_logo(organization, image_url=image_url)
+
     async def get_async(
         self,
         *,
@@ -438,6 +569,108 @@ class MockOrganizationsClient:
 
         return self.delete(
             organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def delete_logo_async(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Async version of delete_logo."""
+
+        return self.delete_logo(
+            organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def do_request_async(
+        self,
+        hook_ctx,
+        request,
+        error_status_codes,
+        stream=False,
+        retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
+    ) -> httpx.Response:
+        """Async version of do_request."""
+
+        return self.do_request(
+            hook_ctx,
+            request,
+            error_status_codes,
+            stream=stream,
+            retry_config=retry_config,
+        )
+
+    async def get_billing_subscription_async(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceSubscription:
+        """Async version of get_billing_subscription."""
+
+        return self.get_billing_subscription(
+            organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def merge_metadata_async(
+        self,
+        *,
+        organization_id: str,
+        public_metadata: Dict[str, Any] | None = None,
+        private_metadata: Dict[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Async version of merge_metadata."""
+
+        return self.merge_metadata(
+            organization_id=organization_id,
+            public_metadata=public_metadata,
+            private_metadata=private_metadata,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def upload_logo_async(
+        self,
+        *,
+        organization_id: str,
+        file: models.UploadOrganizationLogoFile | models.UploadOrganizationLogoFileTypedDict,
+        uploader_user_id: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationWithLogo:
+        """Async version of upload_logo."""
+
+        return self.upload_logo(
+            organization_id=organization_id,
+            file=file,
+            uploader_user_id=uploader_user_id,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,

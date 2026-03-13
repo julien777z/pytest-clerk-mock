@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 from clerk_backend_api import SDKError
+from clerk_backend_api import models
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
@@ -96,6 +97,47 @@ def create_clerk_errors(data: object | None = None) -> ClerkErrors:
         code=DEFAULT_ERROR_CODE,
         message=DEFAULT_ERROR_TEXT,
         response_text=DEFAULT_ERROR_TEXT,
+    )
+
+
+def build_http_response() -> httpx.Response:
+    """Build a generic successful HTTP response for low-level SDK hooks."""
+
+    return httpx.Response(status_code=HTTPStatus.OK, json={})
+
+
+def build_commerce_subscription(*, payer_id: str) -> models.CommerceSubscription:
+    """Build a minimal CommerceSubscription payload."""
+
+    return models.CommerceSubscription.model_validate(
+        {
+            "object": "commerce_subscription",
+            "id": generate_clerk_id("sub"),
+            "instance_id": generate_clerk_id("inst"),
+            "status": "active",
+            "payer_id": payer_id,
+            "created_at": 0,
+            "updated_at": 0,
+            "active_at": 0,
+            "past_due_at": None,
+            "subscription_items": [
+                {
+                    "object": "commerce_subscription_item",
+                    "id": generate_clerk_id("subitem"),
+                    "instance_id": generate_clerk_id("inst"),
+                    "status": "active",
+                    "plan_id": None,
+                    "plan_period": "month",
+                    "payer_id": payer_id,
+                    "is_free_trial": False,
+                    "period_start": 0,
+                    "period_end": None,
+                    "canceled_at": None,
+                    "past_due_at": None,
+                    "ended_at": None,
+                }
+            ],
+        }
     )
 
 

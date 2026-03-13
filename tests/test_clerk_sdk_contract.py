@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Final, Protocol, get_type_hints
+from typing import Any, Final, get_args, get_origin, get_type_hints
 
 import pytest
 from clerk_backend_api import models
@@ -7,52 +7,45 @@ from clerk_backend_api.organizationmemberships_sdk import OrganizationMembership
 from clerk_backend_api.organizations_sdk import OrganizationsSDK
 from clerk_backend_api.users import Users
 
-import pytest_clerk_mock.interfaces.organization_requests as organization_request_interfaces
-import pytest_clerk_mock.interfaces.user_requests as user_request_interfaces
+from pytest_clerk_mock.client import MockClerkClient
+from pytest_clerk_mock.models.organization import MockOrganization, MockOrganizationMembership
+from pytest_clerk_mock.models.user import MockUser
 from pytest_clerk_mock.services.organization_memberships import MockOrganizationMembershipsClient
 from pytest_clerk_mock.services.organizations import MockOrganizationsClient
 from pytest_clerk_mock.services.users import MockUsersClient
 
-USERS_METHOD_NAMES: Final[tuple[str, ...]] = (
-    "create",
-    "create_async",
-    "get",
-    "get_async",
-    "list",
-    "list_async",
-    "update",
-    "update_async",
-    "delete",
-    "delete_async",
-    "count",
-    "count_async",
-    "get_organization_memberships",
-    "get_organization_memberships_async",
-)
-ORGANIZATIONS_METHOD_NAMES: Final[tuple[str, ...]] = (
-    "create",
-    "create_async",
-    "get",
-    "get_async",
-    "list",
-    "list_async",
-    "update",
-    "update_async",
-    "delete",
-    "delete_async",
-)
-ORGANIZATION_MEMBERSHIPS_METHOD_NAMES: Final[tuple[str, ...]] = (
-    "create",
-    "create_async",
-    "list",
-    "list_async",
-    "update",
-    "update_async",
-    "delete",
-    "delete_async",
-)
 SELF_PARAMETER_NAME: Final[str] = "self"
 RETURN_KEY: Final[str] = "return"
+SERVICE_CONTRACTS: Final[
+    tuple[tuple[type[object], type[object], frozenset[str]], ...]
+] = (
+    (Users, MockUsersClient, frozenset({"reset", "set_organization_memberships"})),
+    (OrganizationsSDK, MockOrganizationsClient, frozenset({"add", "reset"})),
+    (OrganizationMembershipsSDK, MockOrganizationMembershipsClient, frozenset({"get", "reset"})),
+)
+EXPECTED_CLIENT_PROPERTIES: Final[dict[str, type[object]]] = {
+    "users": MockUsersClient,
+    "organizations": MockOrganizationsClient,
+    "organization_memberships": MockOrganizationMembershipsClient,
+}
+EXPECTED_CLIENT_METHODS: Final[frozenset[str]] = frozenset(
+    {
+        "add_organization_membership",
+        "as_clerk_user",
+        "as_user",
+        "authenticate_request",
+        "configure_auth",
+        "configure_auth_from_user",
+        "reset",
+    }
+)
+EXPORTED_MODEL_CONTRACTS: Final[
+    tuple[tuple[type[object], type[object], frozenset[str]], ...]
+] = (
+    (models.User, MockUser, frozenset()),
+    (models.Organization, MockOrganization, frozenset()),
+    (models.OrganizationMembership, MockOrganizationMembership, frozenset({"organization_id", "user_id"})),
+)
 
 
 def _callable_name(callable_obj: Any) -> str:
@@ -61,25 +54,14 @@ def _callable_name(callable_obj: Any) -> str:
     return f"{callable_obj.__module__}.{callable_obj.__qualname__}"
 
 
-def _get_public_method(owner: type[object], method_name: str) -> Any:
-    """Return a public method and fail clearly when it is missing."""
+def _discover_public_methods(owner: type[object]) -> dict[str, Any]:
+    """Return all public callable attributes for a class."""
 
-    method = getattr(owner, method_name, None)
-
-    assert method is not None, f"{owner.__name__} is missing public method {method_name!r}"
-
-    return method
-
-
-def _get_public_attribute(owner: object, attribute_name: str) -> Any:
-    """Return a module or class attribute and fail clearly when it is missing."""
-
-    attribute = getattr(owner, attribute_name, None)
-    owner_name = getattr(owner, "__name__", type(owner).__name__)
-
-    assert attribute is not None, f"{owner_name} is missing public attribute {attribute_name!r}"
-
-    return attribute
+    return {
+        name: member
+        for name, member in inspect.getmembers(owner, predicate=callable)
+        if not name.startswith("_")
+    }
 
 
 def _build_signature_spec(
@@ -107,30 +89,42 @@ def _build_signature_spec(
     return parameters, hints.get(RETURN_KEY, signature.return_annotation)
 
 
-def _build_pydantic_field_spec(model_cls: type[models.GetUserListRequest]) -> dict[str, tuple[Any, Any]]:
-    """Return comparable field specs for a Clerk Pydantic request model."""
+def _iter_annotation_types(annotation: Any) -> set[type[object]]:
+    """Flatten nested annotations into the concrete types they reference."""
+
+    if annotation is inspect._empty:
+        return set()
+
+    origin = get_origin(annotation)
+    if origin is None:
+        if isinstance(annotation, type):
+            return {annotation}
+
+        return set()
+
+    referenced_types: set[type[object]] = set()
+
+    for arg in get_args(annotation):
+        referenced_types.update(_iter_annotation_types(arg))
+
+    return referenced_types
+
+
+def _iter_referenced_model_types(callable_obj: Any) -> set[type[object]]:
+    """Return Clerk model/request types referenced by a callable annotation set."""
+
+    _, return_annotation = _build_signature_spec(callable_obj)
+    hints = get_type_hints(callable_obj, include_extras=True)
+    referenced_types = _iter_annotation_types(return_annotation)
+
+    for annotation in hints.values():
+        referenced_types.update(_iter_annotation_types(annotation))
 
     return {
-        field_name: (field_info.annotation, field_info.default)
-        for field_name, field_info in model_cls.model_fields.items()
+        referenced_type
+        for referenced_type in referenced_types
+        if referenced_type.__module__.startswith("clerk_backend_api.models")
     }
-
-
-def _build_protocol_field_spec(protocol_cls: type[Protocol]) -> dict[str, tuple[Any, Any]]:
-    """Return comparable field specs for a protocol-backed request shape."""
-
-    hints = get_type_hints(protocol_cls, include_extras=True)
-
-    return {
-        field_name: (annotation, getattr(protocol_cls, field_name, inspect._empty))
-        for field_name, annotation in hints.items()
-    }
-
-
-def _build_typed_dict_field_spec(typed_dict_cls: type[object]) -> dict[str, Any]:
-    """Return comparable field specs for a TypedDict request shape."""
-
-    return get_type_hints(typed_dict_cls, include_extras=True)
 
 
 def assert_signature_matches(real_callable: Any, mock_callable: Any) -> None:
@@ -153,91 +147,119 @@ def assert_signature_matches(real_callable: Any, mock_callable: Any) -> None:
     )
 
 
-def assert_pydantic_model_fields_match(
-    real_model: type[object],
-    mock_protocol_or_model: type[object],
-) -> None:
-    """Assert that request-model field names, types, and defaults match exactly."""
+class TestSdkServiceContracts:
+    """Assert strict contract coverage for public Clerk SDK services."""
 
-    real_fields = _build_pydantic_field_spec(real_model)
-    mock_fields = _build_protocol_field_spec(mock_protocol_or_model)
-
-    assert real_fields == mock_fields, (
-        f"Field mismatch for {mock_protocol_or_model.__module__}.{mock_protocol_or_model.__qualname__} "
-        f"compared with {real_model.__module__}.{real_model.__qualname__}\n"
-        f"real={real_fields!r}\n"
-        f"mock={mock_fields!r}"
+    @pytest.mark.parametrize(
+        ("real_owner", "mock_owner", "helper_only_methods"),
+        SERVICE_CONTRACTS,
     )
+    def test_mock_supports_every_public_sdk_method(
+        self,
+        real_owner: type[object],
+        mock_owner: type[object],
+        helper_only_methods: frozenset[str],
+    ) -> None:
+        """Test that each mock service implements every public Clerk SDK method."""
 
+        real_method_names = set(_discover_public_methods(real_owner))
+        mock_method_names = set(_discover_public_methods(mock_owner))
 
-def assert_typed_dict_matches(real_typed_dict: type[object], mock_typed_dict: type[object]) -> None:
-    """Assert that TypedDict field names and types match exactly."""
-
-    real_fields = _build_typed_dict_field_spec(real_typed_dict)
-    mock_fields = _build_typed_dict_field_spec(mock_typed_dict)
-
-    assert real_fields == mock_fields, (
-        f"TypedDict mismatch for {mock_typed_dict.__module__}.{mock_typed_dict.__qualname__} "
-        f"compared with {real_typed_dict.__module__}.{real_typed_dict.__qualname__}\n"
-        f"real={real_fields!r}\n"
-        f"mock={mock_fields!r}"
-    )
-
-
-class TestUsersMethodContract:
-    """Assert strict contract for the public Users SDK surface."""
-
-    @pytest.mark.parametrize("method_name", USERS_METHOD_NAMES)
-    def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
-        """Test that each compared users method matches the real Clerk SDK."""
-
-        real_method = _get_public_method(Users, method_name)
-        mock_method = _get_public_method(MockUsersClient, method_name)
-
-        assert_signature_matches(real_method, mock_method)
-
-
-class TestOrganizationsMethodContract:
-    """Assert strict contract for the public Organizations SDK surface."""
-
-    @pytest.mark.parametrize("method_name", ORGANIZATIONS_METHOD_NAMES)
-    def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
-        """Test that each compared organizations method matches the real Clerk SDK."""
-
-        real_method = _get_public_method(OrganizationsSDK, method_name)
-        mock_method = _get_public_method(MockOrganizationsClient, method_name)
-
-        assert_signature_matches(real_method, mock_method)
-
-
-class TestOrganizationMembershipsMethodContract:
-    """Assert strict contract for the public OrganizationMemberships SDK surface."""
-
-    @pytest.mark.parametrize("method_name", ORGANIZATION_MEMBERSHIPS_METHOD_NAMES)
-    def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
-        """Test that each compared membership method matches the real Clerk SDK."""
-
-        real_method = _get_public_method(OrganizationMembershipsSDK, method_name)
-        mock_method = _get_public_method(MockOrganizationMembershipsClient, method_name)
-
-        assert_signature_matches(real_method, mock_method)
-
-
-class TestRequestModelContract:
-    """Assert strict contract for request model and request-shape types."""
-
-    def test_get_user_list_request_matches_mock_protocol(self) -> None:
-        """Test that the user list request fields match the mock protocol exactly."""
-
-        assert_pydantic_model_fields_match(
-            models.GetUserListRequest,
-            _get_public_attribute(user_request_interfaces, "GetUserListRequestLike"),
+        assert real_method_names - mock_method_names == set(), (
+            f"{mock_owner.__name__} is missing SDK methods from {real_owner.__name__}: "
+            f"{sorted(real_method_names - mock_method_names)!r}"
+        )
+        assert mock_method_names - real_method_names == set(helper_only_methods), (
+            f"{mock_owner.__name__} has undocumented helper methods beyond the Clerk SDK: "
+            f"{sorted(mock_method_names - real_method_names)!r}"
         )
 
-    def test_create_organization_request_matches_mock_protocol(self) -> None:
-        """Test that the organization create request fields match the mock protocol exactly."""
+    @pytest.mark.parametrize(
+        ("real_owner", "mock_owner", "_helper_only_methods"),
+        SERVICE_CONTRACTS,
+    )
+    def test_all_public_sdk_signatures_match(
+        self,
+        real_owner: type[object],
+        mock_owner: type[object],
+        _helper_only_methods: frozenset[str],
+    ) -> None:
+        """Test that every public Clerk SDK method matches the mock signature exactly."""
 
-        assert_pydantic_model_fields_match(
-            models.CreateOrganizationRequestBody,
-            _get_public_attribute(organization_request_interfaces, "CreateOrganizationRequestBody"),
+        real_methods = _discover_public_methods(real_owner)
+        mock_methods = _discover_public_methods(mock_owner)
+
+        for method_name in sorted(real_methods):
+            assert_signature_matches(real_methods[method_name], mock_methods[method_name])
+
+
+class TestTypeContracts:
+    """Assert that mock signatures use real Clerk request and object types."""
+
+    @pytest.mark.parametrize(
+        ("real_owner", "mock_owner", "_helper_only_methods"),
+        SERVICE_CONTRACTS,
+    )
+    def test_method_annotations_only_reference_real_clerk_types(
+        self,
+        real_owner: type[object],
+        mock_owner: type[object],
+        _helper_only_methods: frozenset[str],
+    ) -> None:
+        """Test that method annotations reuse real Clerk request/model types directly."""
+
+        real_methods = _discover_public_methods(real_owner)
+        mock_methods = _discover_public_methods(mock_owner)
+
+        for method_name in sorted(real_methods):
+            real_types = _iter_referenced_model_types(real_methods[method_name])
+            mock_types = _iter_referenced_model_types(mock_methods[method_name])
+
+            assert real_types == mock_types, (
+                f"Referenced Clerk types mismatch for {mock_owner.__name__}.{method_name}\n"
+                f"real={sorted(type_.__name__ for type_ in real_types)!r}\n"
+                f"mock={sorted(type_.__name__ for type_ in mock_types)!r}"
+            )
+
+    @pytest.mark.parametrize(
+        ("real_model", "mock_model", "allowed_extra_fields"),
+        EXPORTED_MODEL_CONTRACTS,
+    )
+    def test_exported_mock_models_cover_real_model_fields(
+        self,
+        real_model: type[object],
+        mock_model: type[object],
+        allowed_extra_fields: frozenset[str],
+    ) -> None:
+        """Test that exported mock models include the real Clerk model fields."""
+
+        real_fields = set(real_model.model_fields)
+        mock_fields = set(mock_model.model_fields)
+
+        assert real_fields - mock_fields == set(), (
+            f"{mock_model.__name__} is missing Clerk fields from {real_model.__name__}: "
+            f"{sorted(real_fields - mock_fields)!r}"
         )
+        assert mock_fields - real_fields <= set(allowed_extra_fields), (
+            f"{mock_model.__name__} has unexpected extra fields compared with {real_model.__name__}: "
+            f"{sorted(mock_fields - real_fields)!r}"
+        )
+
+
+class TestMockClerkClientContract:
+    """Assert the public top-level MockClerkClient surface."""
+
+    def test_service_properties_match_expected_types(self) -> None:
+        """Test that the top-level service properties are attached with stable types."""
+
+        client = MockClerkClient()
+
+        for property_name, expected_type in EXPECTED_CLIENT_PROPERTIES.items():
+            assert isinstance(getattr(client, property_name), expected_type)
+
+    def test_public_client_methods_match_expected_surface(self) -> None:
+        """Test that top-level mock client helpers stay stable and explicit."""
+
+        client_method_names = set(_discover_public_methods(MockClerkClient))
+
+        assert client_method_names == set(EXPECTED_CLIENT_METHODS)

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, Tuple
 
+import httpx
 from clerk_backend_api import models, utils
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.types import UNSET, OptionalNullable
@@ -10,7 +11,7 @@ from pytest_clerk_mock.models.organization import (
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
 )
-from pytest_clerk_mock.utils import create_clerk_error, generate_clerk_id
+from pytest_clerk_mock.utils import build_http_response, create_clerk_error, generate_clerk_id
 
 DEFAULT_LIST_LIMIT = 10
 RESOURCE_NOT_FOUND_ERROR_CODE = "resource_not_found"
@@ -111,6 +112,20 @@ class MockOrganizationMembershipsClient:
         key = self._make_key(organization_id, user_id)
 
         return self._memberships.get(key)
+
+    def do_request(
+        self,
+        hook_ctx,
+        request,
+        error_status_codes,
+        stream=False,
+        retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
+    ) -> httpx.Response:
+        """Return a generic successful response for low-level SDK hooks."""
+
+        _ = hook_ctx, request, error_status_codes, stream, retry_config
+
+        return build_http_response()
 
     def _public_user_data_str(
         self,
@@ -473,6 +488,39 @@ class MockOrganizationMembershipsClient:
 
         return updated_membership
 
+    def update_metadata(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        public_metadata: Dict[str, Any] | None = None,
+        private_metadata: Dict[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
+        """Merge metadata into a membership."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        key = self._make_key(organization_id, user_id)
+        if key not in self._memberships:
+            raise _create_membership_not_found_error(organization_id, user_id)
+
+        membership = self._memberships[key]
+        updated_membership = membership.model_copy(
+            update={
+                "public_metadata": {**(membership.public_metadata or {}), **(public_metadata or {})},
+                "private_metadata": {
+                    **(membership.private_metadata or {}),
+                    **(private_metadata or {}),
+                },
+            }
+        )
+        self._memberships[key] = updated_membership
+
+        return updated_membership
+
     async def update_async(
         self,
         *,
@@ -490,6 +538,31 @@ class MockOrganizationMembershipsClient:
             organization_id=organization_id,
             user_id=user_id,
             role=role,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def update_metadata_async(
+        self,
+        *,
+        organization_id: str,
+        user_id: str,
+        public_metadata: Dict[str, Any] | None = None,
+        private_metadata: Dict[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.OrganizationMembership:
+        """Async version of update_metadata."""
+
+        return self.update_metadata(
+            organization_id=organization_id,
+            user_id=user_id,
+            public_metadata=public_metadata,
+            private_metadata=private_metadata,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
@@ -534,4 +607,22 @@ class MockOrganizationMembershipsClient:
             server_url=server_url,
             timeout_ms=timeout_ms,
             http_headers=http_headers,
+        )
+
+    async def do_request_async(
+        self,
+        hook_ctx,
+        request,
+        error_status_codes,
+        stream=False,
+        retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
+    ) -> httpx.Response:
+        """Async version of do_request."""
+
+        return self.do_request(
+            hook_ctx,
+            request,
+            error_status_codes,
+            stream=stream,
+            retry_config=retry_config,
         )
