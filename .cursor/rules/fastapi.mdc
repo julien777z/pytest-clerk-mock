@@ -1,0 +1,83 @@
+---
+alwaysApply: true
+---
+
+# FastAPI Rules
+
+## Route Organization
+
+- Use `APIRouter` for grouping related routes.
+- Keep route handlers thin; delegate business logic to service modules in `services/`.
+- Services should be imported as modules when that keeps route files clearer and avoids large symbol import lists.
+- Include routers via a `for` loop over a tuple; for a single router, use a one-item tuple with a trailing comma.
+
+```python
+for router in (verify_router, schema_router):
+    app.include_router(router)
+```
+
+## Parameters
+
+- Use `Depends()` for dependency injection (database sessions, auth, etc.).
+- Use `Body(...)` for request body parameters.
+- Use `Path(...)` for path parameters.
+- Use `Query(...)` for query parameters with defaults and validation.
+
+## Request Validation
+
+- Validate lengths/types in Pydantic request models, not in route handlers.
+- Prefer dedicated field types from the project's shared model layer or from `pydantic` / `pydantic_extra_types` when they express the constraint clearly.
+
+```python
+from pydantic import Field
+from pydantic_extra_types.phone_numbers import PhoneNumber
+
+class VerifyPayload(BaseModel):
+    phone_number: PhoneNumber
+    retry_count: int = Field(ge=0, le=5)
+```
+
+## Route Metadata
+
+- Do not pass `name`, `summary`, or `description` to route decorators; FastAPI uses the handler docstring.
+
+```python
+@router.post("/verify")
+async def verify_phone(payload: VerifyPayload) -> ApiResponse[VerifyResponse]:
+    """Verify a phone number and return status."""
+```
+
+## Response Types
+
+- Use the repository's standard response envelope or response models consistently across handlers.
+- Prefer one clear pattern for success, pagination, and error responses rather than mixing many response shapes in the same API surface.
+
+## Response Construction
+
+- Do not inline awaited service calls inside response construction.
+- Fetch the data first, then return the response object.
+
+```python
+# Bad
+return ApiResponse(success=True, data=await verification_service.get_status(current_user, session))
+
+# Good
+data = await verification_service.get_status(current_user, session)
+
+return ApiResponse(success=True, data=data)
+```
+
+## Error Handling
+
+- Raise the project's standard HTTP error type with appropriate `HTTPStatus`.
+- For bad or invalid client-provided data, raise an error with `HTTPStatus.BAD_REQUEST`.
+- Do not use `HTTPStatus.UNPROCESSABLE_ENTITY` for bad-data validation errors.
+
+```python
+from http import HTTPStatus
+
+raise HttpError(
+    detail="Invalid payload",
+    status_code=HTTPStatus.BAD_REQUEST,
+)
+```
