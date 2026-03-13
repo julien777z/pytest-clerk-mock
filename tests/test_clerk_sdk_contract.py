@@ -184,8 +184,8 @@ def assert_typed_dict_matches(real_typed_dict: type[object], mock_typed_dict: ty
     )
 
 
-class TestUsersMethodParity:
-    """Assert strict Contract for the public Users SDK surface."""
+class TestUsersMethodContract:
+    """Assert strict contract for the public Users SDK surface."""
 
     @pytest.mark.parametrize("method_name", USERS_METHOD_NAMES)
     def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
@@ -197,8 +197,8 @@ class TestUsersMethodParity:
         assert_signature_matches(real_method, mock_method)
 
 
-class TestOrganizationsMethodParity:
-    """Assert strict Contract for the public Organizations SDK surface."""
+class TestOrganizationsMethodContract:
+    """Assert strict contract for the public Organizations SDK surface."""
 
     @pytest.mark.parametrize("method_name", ORGANIZATIONS_METHOD_NAMES)
     def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
@@ -210,8 +210,8 @@ class TestOrganizationsMethodParity:
         assert_signature_matches(real_method, mock_method)
 
 
-class TestOrganizationMembershipsMethodParity:
-    """Assert strict Contract for the public OrganizationMemberships SDK surface."""
+class TestOrganizationMembershipsMethodContract:
+    """Assert strict contract for the public OrganizationMemberships SDK surface."""
 
     @pytest.mark.parametrize("method_name", ORGANIZATION_MEMBERSHIPS_METHOD_NAMES)
     def test_method_signature_matches_real_sdk(self, method_name: str) -> None:
@@ -223,8 +223,8 @@ class TestOrganizationMembershipsMethodParity:
         assert_signature_matches(real_method, mock_method)
 
 
-class TestRequestModelParity:
-    """Assert strict Contract for request model and request-shape types."""
+class TestRequestModelContract:
+    """Assert strict contract for request model and request-shape types."""
 
     def test_get_user_list_request_matches_mock_protocol(self) -> None:
         """Test that the user list request fields match the mock protocol exactly."""
