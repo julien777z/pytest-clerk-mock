@@ -25,9 +25,27 @@ jobs:
 
       - name: Test with Pytest
         run: |
-          poetry run pytest --cov=pytest_clerk_mock --cov-branch --cov-report=xml
+          poetry run pytest --cov=pytest_clerk_mock --cov-branch --cov-report=xml --ignore=tests/contract_parity
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  contract-tests:
+    name: Run SDK Contract Parity Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python and Poetry
+        uses: ./.github/actions/setup-python-poetry
+        with:
+          python-version: "3.13"
+          post_setup_command: "poetry install --all-extras"
+
+      - name: Test SDK Contract Parity Tests
+        run: |
+          poetry run pytest tests/contract_parity -m contract

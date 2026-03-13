@@ -31,6 +31,9 @@ ruff = "^0.15.4"
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+markers = [
+    "contract: contract parity tests",
+]
 
 [tool.ruff]
 line-length = 110
