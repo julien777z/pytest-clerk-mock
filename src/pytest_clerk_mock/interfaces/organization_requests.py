@@ -1,20 +1,23 @@
-from typing import TypeAlias
+from typing import Any, Dict, TypeAlias
 
-from clerk_backend_api.types import OptionalNullable
-from typing_extensions import NotRequired, TypedDict
+from clerk_backend_api import models
+from clerk_backend_api.types import UNSET, OptionalNullable
+from pydantic.fields import PydanticUndefined
 
-MetadataScalar: TypeAlias = str | int | float | bool | None
-MetadataValue: TypeAlias = MetadataScalar | list["MetadataValue"] | dict[str, "MetadataValue"]
-MetadataDict: TypeAlias = dict[str, MetadataValue]
+MetadataDict: TypeAlias = Dict[str, Any]
+CreateOrganizationRequestBodyTypedDict = models.CreateOrganizationRequestBodyTypedDict
+CreateOrganizationRequest: TypeAlias = (
+    models.CreateOrganizationRequestBody | models.CreateOrganizationRequestBodyTypedDict
+)
 
 
-class CreateOrganizationRequestBody(TypedDict):
-    """Describe the supported organization create request shape."""
+class CreateOrganizationRequestBody:
+    """Describe the Clerk organization create request model shape."""
 
-    name: str
-    created_by: NotRequired[OptionalNullable[str]]
-    private_metadata: NotRequired[OptionalNullable[MetadataDict]]
-    public_metadata: NotRequired[OptionalNullable[MetadataDict]]
-    slug: NotRequired[OptionalNullable[str]]
-    max_allowed_memberships: NotRequired[OptionalNullable[int]]
-    created_at: NotRequired[OptionalNullable[str]]
+    name: str = PydanticUndefined
+    created_by: OptionalNullable[str] = UNSET
+    private_metadata: OptionalNullable[Dict[str, Any]] = UNSET
+    public_metadata: OptionalNullable[Dict[str, Any]] = UNSET
+    slug: OptionalNullable[str] = UNSET
+    max_allowed_memberships: OptionalNullable[int] = UNSET
+    created_at: OptionalNullable[str] = UNSET

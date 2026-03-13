@@ -1,3 +1,6 @@
+import pytest
+from clerk_backend_api.models import ClerkErrors
+
 from pytest_clerk_mock import MockClerkClient
 
 
@@ -78,15 +81,14 @@ class TestOrganizationMembershipsDelete:
         assert deleted.organization_id == "org_123"
         assert deleted.user_id == "user_456"
 
-    def test_delete_nonexistent_returns_none(self, mock_clerk: MockClerkClient) -> None:
-        """Delete nonexistent membership returns None."""
+    def test_delete_nonexistent_raises(self, mock_clerk: MockClerkClient) -> None:
+        """Delete nonexistent membership raises ClerkErrors."""
 
-        result = mock_clerk.organization_memberships.delete(
-            organization_id="org_nonexistent",
-            user_id="user_nonexistent",
-        )
-
-        assert result is None
+        with pytest.raises(ClerkErrors):
+            mock_clerk.organization_memberships.delete(
+                organization_id="org_nonexistent",
+                user_id="user_nonexistent",
+            )
 
     async def test_delete_async(self, mock_clerk: MockClerkClient) -> None:
         """Async delete works like sync version."""
@@ -330,17 +332,17 @@ class TestOrganizationMembershipsReset:
 
         mock_clerk.organization_memberships.reset()
 
-        result1 = mock_clerk.organization_memberships.delete(
-            organization_id="org_1",
-            user_id="user_1",
-        )
-        result2 = mock_clerk.organization_memberships.delete(
-            organization_id="org_2",
-            user_id="user_2",
-        )
+        with pytest.raises(ClerkErrors):
+            mock_clerk.organization_memberships.delete(
+                organization_id="org_1",
+                user_id="user_1",
+            )
 
-        assert result1 is None
-        assert result2 is None
+        with pytest.raises(ClerkErrors):
+            mock_clerk.organization_memberships.delete(
+                organization_id="org_2",
+                user_id="user_2",
+            )
 
 
 class TestFixtureIsolation:
@@ -365,9 +367,8 @@ class TestFixtureIsolation:
     def test_fixture_isolation_second(self, mock_clerk: MockClerkClient) -> None:
         """Second test sees empty store."""
 
-        result = mock_clerk.organization_memberships.delete(
-            organization_id="org_isolation",
-            user_id="user_isolation",
-        )
-
-        assert result is None
+        with pytest.raises(ClerkErrors):
+            mock_clerk.organization_memberships.delete(
+                organization_id="org_isolation",
+                user_id="user_isolation",
+            )

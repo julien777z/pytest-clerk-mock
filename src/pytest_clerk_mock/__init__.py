@@ -1,5 +1,5 @@
 from pytest_clerk_mock.client import MockClerkClient
-from pytest_clerk_mock.helpers import (
+from pytest_clerk_mock.utils import (
     create_clerk_errors,
     mock_clerk_user_creation,
     mock_clerk_user_creation_failure,

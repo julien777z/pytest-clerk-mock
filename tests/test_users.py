@@ -16,9 +16,20 @@ class _UserListRequest:
         phone_number: list[str] | None = None,
         external_id: list[str] | None = None,
         username: list[str] | None = None,
+        web3_wallet: list[str] | None = None,
         user_id: list[str] | None = None,
+        organization_id: list[str] | None = None,
         query: str | None = None,
+        email_address_query: str | None = None,
+        phone_number_query: str | None = None,
+        username_query: str | None = None,
+        name_query: str | None = None,
+        banned: bool | None = None,
+        last_active_at_before: int | None = None,
+        last_active_at_after: int | None = None,
         last_active_at_since: int | None = None,
+        created_at_before: int | None = None,
+        created_at_after: int | None = None,
         limit: int = 10,
         offset: int = 0,
         order_by: str = "-created_at",
@@ -27,9 +38,20 @@ class _UserListRequest:
         self.phone_number = phone_number
         self.external_id = external_id
         self.username = username
+        self.web3_wallet = web3_wallet
         self.user_id = user_id
+        self.organization_id = organization_id
         self.query = query
+        self.email_address_query = email_address_query
+        self.phone_number_query = phone_number_query
+        self.username_query = username_query
+        self.name_query = name_query
+        self.banned = banned
+        self.last_active_at_before = last_active_at_before
+        self.last_active_at_after = last_active_at_after
         self.last_active_at_since = last_active_at_since
+        self.created_at_before = created_at_before
+        self.created_at_after = created_at_after
         self.limit = limit
         self.offset = offset
         self.order_by = order_by
@@ -162,7 +184,7 @@ class TestUserGet:
             first_name="John",
         )
 
-        fetched = mock_clerk.users.get(created.id)
+        fetched = mock_clerk.users.get(user_id=created.id)
 
         assert fetched.id == created.id
         assert fetched.first_name == "John"
@@ -172,7 +194,7 @@ class TestUserGet:
         """Nonexistent user raises ClerkErrors with resource_not_found code."""
 
         with pytest.raises(ClerkErrors) as exc_info:
-            mock_clerk.users.get("user_nonexistent")
+            mock_clerk.users.get(user_id="user_nonexistent")
 
         _assert_resource_not_found(exc_info.value, user_id="user_nonexistent")
 
@@ -205,7 +227,7 @@ class TestUserList:
         user2 = mock_clerk.users.create(email_address=["user2@example.com"])
         mock_clerk.users.create(email_address=["user3@example.com"])
 
-        users = mock_clerk.users.list(email_address=["user2@example.com"])
+        users = mock_clerk.users.list(request=GetUserListRequest(email_address=["user2@example.com"]))
 
         assert len(users) == 1
         assert users[0].id == user2.id
@@ -216,7 +238,7 @@ class TestUserList:
         mock_clerk.users.create(email_address=["user1@example.com"], external_id="ext_1")
         user2 = mock_clerk.users.create(email_address=["user2@example.com"], external_id="ext_2")
 
-        users = mock_clerk.users.list(external_id=["ext_2"])
+        users = mock_clerk.users.list(request=GetUserListRequest(external_id=["ext_2"]))
 
         assert len(users) == 1
         assert users[0].id == user2.id
@@ -227,7 +249,7 @@ class TestUserList:
         mock_clerk.users.create(username="alice")
         bob = mock_clerk.users.create(username="bob")
 
-        users = mock_clerk.users.list(username=["bob"])
+        users = mock_clerk.users.list(request=GetUserListRequest(username=["bob"]))
 
         assert len(users) == 1
         assert users[0].id == bob.id
@@ -238,7 +260,7 @@ class TestUserList:
         mock_clerk.users.create(email_address=["alice@example.com"], first_name="Alice")
         bob = mock_clerk.users.create(email_address=["bob@example.com"], first_name="Bob")
 
-        users = mock_clerk.users.list(query="bob")
+        users = mock_clerk.users.list(request=GetUserListRequest(query="bob"))
 
         assert len(users) == 1
         assert users[0].id == bob.id
@@ -249,7 +271,7 @@ class TestUserList:
         for i in range(5):
             mock_clerk.users.create(email_address=[f"user{i}@example.com"])
 
-        users = mock_clerk.users.list(limit=2)
+        users = mock_clerk.users.list(request=GetUserListRequest(limit=2))
 
         assert len(users) == 2
 
@@ -259,7 +281,7 @@ class TestUserList:
         for i in range(5):
             mock_clerk.users.create(email_address=[f"user{i}@example.com"])
 
-        users = mock_clerk.users.list(limit=10, offset=3)
+        users = mock_clerk.users.list(request=GetUserListRequest(limit=10, offset=3))
 
         assert len(users) == 2
 
@@ -275,10 +297,10 @@ class TestUserUpdate:
             first_name="John",
         )
 
-        updated = mock_clerk.users.update(user.id, first_name="Jane")
+        updated = mock_clerk.users.update(user_id=user.id, first_name="Jane")
 
         assert updated.first_name == "Jane"
-        assert mock_clerk.users.get(user.id).first_name == "Jane"
+        assert mock_clerk.users.get(user_id=user.id).first_name == "Jane"
 
     def test_update_multiple_fields(self, mock_clerk: MockClerkClient) -> None:
         """Multiple fields can be updated at once."""
@@ -290,7 +312,7 @@ class TestUserUpdate:
         )
 
         updated = mock_clerk.users.update(
-            user.id,
+            user_id=user.id,
             first_name="Jane",
             last_name="Smith",
             username="janesmith",
@@ -309,7 +331,7 @@ class TestUserUpdate:
         )
 
         updated = mock_clerk.users.update(
-            user.id,
+            user_id=user.id,
             public_metadata={"role": "admin"},
         )
 
@@ -319,7 +341,7 @@ class TestUserUpdate:
         """Update nonexistent user raises ClerkErrors."""
 
         with pytest.raises(ClerkErrors) as exc_info:
-            mock_clerk.users.update("user_nonexistent", first_name="Test")
+            mock_clerk.users.update(user_id="user_nonexistent", first_name="Test")
 
         _assert_resource_not_found(exc_info.value)
 
@@ -332,18 +354,19 @@ class TestUserDelete:
 
         user = mock_clerk.users.create(email_address=["test@example.com"])
 
-        deleted = mock_clerk.users.delete(user.id)
+        deleted = mock_clerk.users.delete(user_id=user.id)
 
         assert deleted.id == user.id
+        assert deleted.deleted is True
 
         with pytest.raises(ClerkErrors):
-            mock_clerk.users.get(user.id)
+            mock_clerk.users.get(user_id=user.id)
 
     def test_delete_user_clears_email(self, mock_clerk: MockClerkClient) -> None:
         """Delete frees email for reuse."""
 
         user = mock_clerk.users.create(email_address=["test@example.com"])
-        mock_clerk.users.delete(user.id)
+        mock_clerk.users.delete(user_id=user.id)
 
         new_user = mock_clerk.users.create(email_address=["test@example.com"])
 
@@ -353,7 +376,7 @@ class TestUserDelete:
         """Delete nonexistent user raises ClerkErrors."""
 
         with pytest.raises(ClerkErrors) as exc_info:
-            mock_clerk.users.delete("user_nonexistent")
+            mock_clerk.users.delete(user_id="user_nonexistent")
 
         _assert_resource_not_found(exc_info.value)
 
@@ -369,7 +392,7 @@ class TestUserCount:
 
         count = mock_clerk.users.count()
 
-        assert count == 5
+        assert count.total_count == 5
 
     def test_count_with_filter(self, mock_clerk: MockClerkClient) -> None:
         """Count respects filters."""
@@ -380,7 +403,7 @@ class TestUserCount:
 
         count = mock_clerk.users.count(external_id=["ext_1"])
 
-        assert count == 2
+        assert count.total_count == 2
 
 
 class TestFixtureIsolation:
@@ -504,6 +527,7 @@ class TestAsyncAPI:
         deleted = await mock_clerk.users.delete_async(user_id=user.id)
 
         assert deleted.id == user.id
+        assert deleted.deleted is True
 
         with pytest.raises(ClerkErrors):
             await mock_clerk.users.get_async(user_id=user.id)
@@ -524,7 +548,7 @@ class TestAsyncAPI:
 
         count = await mock_clerk.users.count_async()
 
-        assert count == 3
+        assert count.total_count == 3
 
     async def test_count_async_with_filter(self, mock_clerk: MockClerkClient) -> None:
         """Async count respects filters."""
@@ -534,4 +558,4 @@ class TestAsyncAPI:
 
         count = await mock_clerk.users.count_async(external_id=["ext_1"])
 
-        assert count == 1
+        assert count.total_count == 1

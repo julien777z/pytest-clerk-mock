@@ -1,44 +1,33 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import datetime
 from http import HTTPStatus
-from typing import Final, TypeVar
+from typing import Any, Dict, Final, List, Mapping
 
-from clerk_backend_api import utils
+from clerk_backend_api import models, utils
 from clerk_backend_api.types import UNSET, OptionalNullable
 
-from pytest_clerk_mock.helpers import create_clerk_error, generate_clerk_id
 from pytest_clerk_mock.interfaces.organization_requests import (
-    CreateOrganizationRequestBody,
+    CreateOrganizationRequest,
     MetadataDict,
 )
 from pytest_clerk_mock.models.organization import MockOrganization
+from pytest_clerk_mock.utils import (
+    create_clerk_error,
+    generate_clerk_id,
+    resolve_optional_nullable,
+)
 
 RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 ORGANIZATION_NOT_FOUND_RESPONSE_TEXT: Final[str] = "Organization not found."
 DEFAULT_MAX_ALLOWED_MEMBERSHIPS: Final[int] = 0
-
-RequestValueT = TypeVar("RequestValueT")
-
-
-def _resolve_optional_nullable(
-    value: OptionalNullable[RequestValueT],
-) -> RequestValueT | None:
-    """Resolve Clerk optional-nullable values into plain Python values."""
-
-    if value is UNSET:
-        return None
-
-    return value
-
 
 def _resolve_metadata(
     metadata: OptionalNullable[MetadataDict] | None,
 ) -> dict[str, object] | None:
     """Convert request metadata into stored dict values."""
 
-    resolved_metadata = _resolve_optional_nullable(metadata) if metadata is not None else None
+    resolved_metadata = resolve_optional_nullable(metadata) if metadata is not None else None
     if resolved_metadata is None:
         return None
 
@@ -48,7 +37,7 @@ def _resolve_metadata(
 def _resolve_created_at(created_at: OptionalNullable[str]) -> int | None:
     """Convert Clerk created_at strings into epoch milliseconds."""
 
-    resolved_created_at = _resolve_optional_nullable(created_at)
+    resolved_created_at = resolve_optional_nullable(created_at)
     if resolved_created_at is None:
         return None
 
@@ -115,24 +104,24 @@ class MockOrganizationsClient:
     def create(
         self,
         *,
-        request: CreateOrganizationRequestBody | None = None,
+        request: CreateOrganizationRequest | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> MockOrganization:
+    ) -> models.Organization:
         """Create a new organization using Clerk-style request payloads."""
 
         _ = retries, server_url, timeout_ms, http_headers
 
-        request_payload: CreateOrganizationRequestBody = request or {"name": ""}
+        request_payload: CreateOrganizationRequest = request or {"name": ""}
         resolved_name = request_payload["name"]
-        resolved_created_by = _resolve_optional_nullable(request_payload.get("created_by", UNSET))
-        resolved_slug = _resolve_optional_nullable(request_payload.get("slug", UNSET)) or ""
+        resolved_created_by = resolve_optional_nullable(request_payload.get("created_by", UNSET))
+        resolved_slug = resolve_optional_nullable(request_payload.get("slug", UNSET)) or ""
         resolved_public_metadata = _resolve_metadata(request_payload.get("public_metadata", UNSET))
         resolved_private_metadata = _resolve_metadata(request_payload.get("private_metadata", UNSET))
         resolved_created_at = _resolve_created_at(request_payload.get("created_at", UNSET))
-        resolved_max_allowed_memberships = _resolve_optional_nullable(
+        resolved_max_allowed_memberships = resolve_optional_nullable(
             request_payload.get("max_allowed_memberships", UNSET)
         )
 
@@ -151,9 +140,27 @@ class MockOrganizationsClient:
             created_at=resolved_created_at,
         )
 
-    def get(self, organization_id: str) -> MockOrganization:
+    def get(
+        self,
+        *,
+        organization_id: str,
+        include_members_count: bool | None = None,
+        include_missing_member_with_elevated_permissions: bool | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
         """Get an organization by ID."""
 
+        _ = (
+            include_members_count,
+            include_missing_member_with_elevated_permissions,
+            retries,
+            server_url,
+            timeout_ms,
+            http_headers,
+        )
         if organization_id not in self._organizations:
             raise create_clerk_error(
                 status_code=HTTPStatus.NOT_FOUND,
@@ -164,24 +171,261 @@ class MockOrganizationsClient:
 
         return self._organizations[organization_id]
 
-    async def get_async(self, organization_id: str) -> MockOrganization:
-        """Async version of get."""
-
-        return self.get(organization_id)
-
-    async def create_async(
+    def list(
         self,
         *,
-        request: CreateOrganizationRequestBody | None = None,
+        include_members_count: bool | None = None,
+        include_missing_member_with_elevated_permissions: bool | None = None,
+        query: str | None = None,
+        user_id: List[str] | None = None,
+        organization_id: List[str] | None = None,
+        order_by: str | None = "-created_at",
+        limit: int | None = 10,
+        offset: int | None = 0,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> MockOrganization:
+    ) -> models.Organizations:
+        """List organizations with Clerk-style filters."""
+
+        _ = (
+            include_members_count,
+            include_missing_member_with_elevated_permissions,
+            user_id,
+            retries,
+            server_url,
+            timeout_ms,
+            http_headers,
+        )
+        organizations = list(self._organizations.values())
+
+        if query:
+            query_lower = query.lower()
+            organizations = [
+                organization
+                for organization in organizations
+                if query_lower in organization.name.lower()
+                or query_lower in organization.slug.lower()
+                or query_lower in organization.id.lower()
+            ]
+
+        if organization_id:
+            organization_id_set = set(organization_id)
+            organizations = [
+                organization for organization in organizations if organization.id in organization_id_set
+            ]
+
+        resolved_order_by = order_by or "-created_at"
+        reverse = resolved_order_by.startswith("-")
+        sort_key = resolved_order_by.lstrip("-+")
+
+        if sort_key == "created_at":
+            organizations.sort(key=lambda organization: organization.created_at, reverse=reverse)
+        elif sort_key == "updated_at":
+            organizations.sort(key=lambda organization: organization.updated_at, reverse=reverse)
+        elif sort_key == "name":
+            organizations.sort(key=lambda organization: organization.name.lower(), reverse=reverse)
+
+        total_count = len(organizations)
+        resolved_offset = offset or 0
+        resolved_limit = limit or 10
+        organizations = organizations[resolved_offset : resolved_offset + resolved_limit]
+
+        return models.Organizations(data=organizations, total_count=total_count)
+
+    def update(
+        self,
+        *,
+        organization_id: str,
+        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        name: OptionalNullable[str] = UNSET,
+        slug: OptionalNullable[str] = UNSET,
+        max_allowed_memberships: OptionalNullable[int] = UNSET,
+        admin_delete_enabled: OptionalNullable[bool] = UNSET,
+        created_at: OptionalNullable[str] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Update an organization by ID."""
+
+        _ = admin_delete_enabled, created_at, retries, server_url, timeout_ms, http_headers
+        organization = self.get(
+            organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+        update_data = {
+            "public_metadata": _resolve_metadata(public_metadata),
+            "private_metadata": _resolve_metadata(private_metadata),
+            "name": resolve_optional_nullable(name),
+            "slug": resolve_optional_nullable(slug),
+            "max_allowed_memberships": resolve_optional_nullable(max_allowed_memberships),
+        }
+        update_data = {key: value for key, value in update_data.items() if value is not None}
+        updated_organization = organization.model_copy(update=update_data)
+        self._organizations[organization_id] = updated_organization
+
+        return updated_organization
+
+    def delete(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.DeletedObject:
+        """Delete an organization by ID."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        organization = self.get(
+            organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+        self._organizations.pop(organization_id)
+
+        return models.DeletedObject(
+            object="organization",
+            deleted=True,
+            id=organization.id,
+            slug=organization.slug,
+        )
+
+    async def get_async(
+        self,
+        *,
+        organization_id: str,
+        include_members_count: bool | None = None,
+        include_missing_member_with_elevated_permissions: bool | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Async version of get."""
+
+        return self.get(
+            organization_id=organization_id,
+            include_members_count=include_members_count,
+            include_missing_member_with_elevated_permissions=(
+                include_missing_member_with_elevated_permissions
+            ),
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def list_async(
+        self,
+        *,
+        include_members_count: bool | None = None,
+        include_missing_member_with_elevated_permissions: bool | None = None,
+        query: str | None = None,
+        user_id: List[str] | None = None,
+        organization_id: List[str] | None = None,
+        order_by: str | None = "-created_at",
+        limit: int | None = 10,
+        offset: int | None = 0,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organizations:
+        """Async version of list."""
+
+        return self.list(
+            include_members_count=include_members_count,
+            include_missing_member_with_elevated_permissions=(
+                include_missing_member_with_elevated_permissions
+            ),
+            query=query,
+            user_id=user_id,
+            organization_id=organization_id,
+            order_by=order_by,
+            limit=limit,
+            offset=offset,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def create_async(
+        self,
+        *,
+        request: CreateOrganizationRequest | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
         """Async version of create."""
 
         return self.create(
             request=request,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def update_async(
+        self,
+        *,
+        organization_id: str,
+        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        name: OptionalNullable[str] = UNSET,
+        slug: OptionalNullable[str] = UNSET,
+        max_allowed_memberships: OptionalNullable[int] = UNSET,
+        admin_delete_enabled: OptionalNullable[bool] = UNSET,
+        created_at: OptionalNullable[str] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Async version of update."""
+
+        return self.update(
+            organization_id=organization_id,
+            public_metadata=public_metadata,
+            private_metadata=private_metadata,
+            name=name,
+            slug=slug,
+            max_allowed_memberships=max_allowed_memberships,
+            admin_delete_enabled=admin_delete_enabled,
+            created_at=created_at,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def delete_async(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.DeletedObject:
+        """Async version of delete."""
+
+        return self.delete(
+            organization_id=organization_id,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,

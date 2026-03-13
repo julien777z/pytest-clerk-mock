@@ -84,7 +84,7 @@ class TestOrganizationCreate:
             }
         )
 
-        stored = mock_clerk.organizations.get(org.id)
+        stored = mock_clerk.organizations.get(organization_id=org.id)
 
         assert stored.created_at == CREATED_AT_MS
 
@@ -101,7 +101,7 @@ class TestOrganizationCreate:
             }
         )
 
-        stored = mock_clerk.organizations.get(org.id)
+        stored = mock_clerk.organizations.get(organization_id=org.id)
 
         assert stored.id.startswith("org_")
         assert stored.name == "Async Org"
@@ -124,7 +124,7 @@ class TestOrganizationCreate:
                 "created_at": "2026-03-12T00:00:00Z",
             }
         )
-        stored = mock_clerk.organizations.get(org.id)
+        stored = mock_clerk.organizations.get(organization_id=org.id)
 
         assert stored.id.startswith("org_")
         assert stored.name == "Request Org"
@@ -144,7 +144,7 @@ class TestOrganizationGet:
 
         mock_clerk.organizations.add("org_123", name="Test Org")
 
-        retrieved = mock_clerk.organizations.get("org_123")
+        retrieved = mock_clerk.organizations.get(organization_id="org_123")
 
         assert retrieved.id == "org_123"
         assert retrieved.name == "Test Org"
@@ -153,7 +153,7 @@ class TestOrganizationGet:
         """Nonexistent organization raises ClerkErrors."""
 
         with pytest.raises(ClerkErrors) as exc_info:
-            mock_clerk.organizations.get("org_nonexistent")
+            mock_clerk.organizations.get(organization_id="org_nonexistent")
 
         _assert_resource_not_found(exc_info.value, organization_id="org_nonexistent")
 
@@ -162,7 +162,7 @@ class TestOrganizationGet:
 
         mock_clerk.organizations.add("org_async_test", name="Async Org")
 
-        org = await mock_clerk.organizations.get_async("org_async_test")
+        org = await mock_clerk.organizations.get_async(organization_id="org_async_test")
 
         assert org.id == "org_async_test"
         assert org.name == "Async Org"
@@ -180,7 +180,7 @@ class TestOrganizationReset:
         mock_clerk.organizations.reset()
 
         with pytest.raises(ClerkErrors):
-            mock_clerk.organizations.get("org_1")
+            mock_clerk.organizations.get(organization_id="org_1")
 
         with pytest.raises(ClerkErrors):
-            mock_clerk.organizations.get("org_2")
+            mock_clerk.organizations.get(organization_id="org_2")
