@@ -9,6 +9,7 @@ from clerk_backend_api import models, utils
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
+from pytest_clerk_mock.models.commerce import MockCommerceSubscription
 from pytest_clerk_mock.models.organization import MockOrganization
 from pytest_clerk_mock.utils import (
     build_commerce_subscription,
@@ -388,7 +389,7 @@ class MockOrganizationsClient:
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> models.CommerceSubscription:
+    ) -> MockCommerceSubscription:
         """Return a placeholder billing subscription for an organization."""
 
         _ = retries, server_url, timeout_ms, http_headers
@@ -620,7 +621,7 @@ class MockOrganizationsClient:
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> models.CommerceSubscription:
+    ) -> MockCommerceSubscription:
         """Async version of get_billing_subscription."""
 
         return self.get_billing_subscription(
