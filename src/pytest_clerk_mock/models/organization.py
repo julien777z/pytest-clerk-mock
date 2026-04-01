@@ -17,6 +17,7 @@ class MockOrganization(BaseModel):
     private_metadata: dict[str, Any] = Field(default_factory=dict)
     max_allowed_memberships: int = 0
     admin_delete_enabled: bool = False
+    role_set_key: str | None = None
     created_at: int = 0
     updated_at: int = 0
     members_count: int | None = None

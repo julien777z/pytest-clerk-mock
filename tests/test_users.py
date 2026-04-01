@@ -1,5 +1,5 @@
 import pytest
-from clerk_backend_api.models import ClerkErrors, GetUserListRequest
+from clerk_backend_api.models import ClerkErrors, GetUserListRequest, GetUsersCountRequest
 
 from pytest_clerk_mock.client import MockClerkClient
 
@@ -401,7 +401,7 @@ class TestUserCount:
         mock_clerk.users.create(email_address=["user2@example.com"], external_id="ext_1")
         mock_clerk.users.create(email_address=["user3@example.com"], external_id="ext_2")
 
-        count = mock_clerk.users.count(external_id=["ext_1"])
+        count = mock_clerk.users.count(request=GetUsersCountRequest(external_id=["ext_1"]))
 
         assert count.total_count == 2
 
@@ -556,6 +556,8 @@ class TestAsyncAPI:
         await mock_clerk.users.create_async(email_address=["user1@example.com"], external_id="ext_1")
         await mock_clerk.users.create_async(email_address=["user2@example.com"], external_id="ext_2")
 
-        count = await mock_clerk.users.count_async(external_id=["ext_1"])
+        count = await mock_clerk.users.count_async(
+            request=GetUsersCountRequest(external_id=["ext_1"]),
+        )
 
         assert count.total_count == 1

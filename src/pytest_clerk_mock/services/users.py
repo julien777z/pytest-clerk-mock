@@ -16,6 +16,8 @@ from pytest_clerk_mock.models.user import (
     MockUser,
 )
 from pytest_clerk_mock.utils import (
+    build_commerce_credit_balance_response,
+    build_commerce_credit_ledger_response,
     build_commerce_subscription,
     build_http_response,
     create_clerk_error,
@@ -30,6 +32,7 @@ EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try anot
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
 DEFAULT_GET_USER_LIST_REQUEST: Final[models.GetUserListRequest] = models.GetUserListRequest()
+DEFAULT_GET_USERS_COUNT_REQUEST: Final[models.GetUsersCountRequest] = models.GetUsersCountRequest()
 
 
 def _create_email_exists_error(email: str) -> ClerkErrors:
@@ -144,11 +147,7 @@ class MockUsersClient:
     ) -> models.OrganizationMemberships:
         """Build an instance-wide organization memberships response."""
 
-        memberships = [
-            membership
-            for response in self._memberships.values()
-            for membership in response.data
-        ]
+        memberships = [membership for response in self._memberships.values() for membership in response.data]
         resolved_offset = offset or 0
         resolved_limit = limit or 10
 
@@ -181,6 +180,7 @@ class MockUsersClient:
         delete_self_enabled: OptionalNullable[bool] = UNSET,
         legal_accepted_at: OptionalNullable[str] = UNSET,
         skip_legal_checks: OptionalNullable[bool] = UNSET,
+        skip_user_requirement: OptionalNullable[bool] = UNSET,
         create_organization_enabled: OptionalNullable[bool] = UNSET,
         create_organizations_limit: OptionalNullable[int] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
@@ -202,6 +202,7 @@ class MockUsersClient:
             backup_codes,
             legal_accepted_at,
             skip_legal_checks,
+            skip_user_requirement,
             created_at,
             bypass_client_trust,
             retries,
@@ -560,24 +561,8 @@ class MockUsersClient:
     def count(
         self,
         *,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        external_id: List[str] | None = None,
-        username: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
-        user_id: List[str] | None = None,
-        organization_id: List[str] | None = None,
-        query: str | None = None,
-        email_address_query: str | None = None,
-        phone_number_query: str | None = None,
-        username_query: str | None = None,
-        name_query: str | None = None,
-        banned: bool | None = None,
-        last_active_at_before: int | None = None,
-        last_active_at_after: int | None = None,
-        last_active_at_since: int | None = None,
-        created_at_before: int | None = None,
-        created_at_after: int | None = None,
+        request: models.GetUsersCountRequest
+        | models.GetUsersCountRequestTypedDict = DEFAULT_GET_USERS_COUNT_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -586,29 +571,13 @@ class MockUsersClient:
         """Count users matching the filters."""
 
         _ = retries, server_url, timeout_ms, http_headers
-        users = self.list(
-            request=models.GetUserListRequest(
-                email_address=email_address,
-                phone_number=phone_number,
-                external_id=external_id,
-                username=username,
-                web3_wallet=web3_wallet,
-                user_id=user_id,
-                organization_id=organization_id,
-                query=query,
-                email_address_query=email_address_query,
-                phone_number_query=phone_number_query,
-                username_query=username_query,
-                name_query=name_query,
-                banned=banned,
-                last_active_at_before=last_active_at_before,
-                last_active_at_after=last_active_at_after,
-                last_active_at_since=last_active_at_since,
-                created_at_before=created_at_before,
-                created_at_after=created_at_after,
-                limit=999999,
-            ),
-        )
+        if not isinstance(request, models.GetUsersCountRequest):
+            request = utils.unmarshal(request, models.GetUsersCountRequest)
+
+        list_payload = dict(request.model_dump(mode="python"))
+        list_payload["limit"] = 999999
+        list_request = models.GetUserListRequest.model_validate(list_payload)
+        users = self.list(request=list_request)
 
         return models.TotalCount(
             object=models.TotalCountObject.TOTAL_COUNT,
@@ -851,6 +820,86 @@ class MockUsersClient:
         self._get_user_or_error(user_id)
 
         return build_commerce_subscription(payer_id=user_id)
+
+    def adjust_billing_credit_balance(
+        self,
+        *,
+        user_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Adjust a user's billing credit balance."""
+
+        _ = (
+            action,
+            idempotency_key,
+            note,
+            retries,
+            server_url,
+            timeout_ms,
+            http_headers,
+        )
+        self._get_user_or_error(user_id)
+
+        return build_commerce_credit_ledger_response(
+            payer_id=user_id,
+            amount=amount,
+            currency=currency or "usd",
+        )
+
+    def get_billing_credit_balance(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Return a placeholder billing credit balance for a user."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_user_or_error(user_id)
+
+        return build_commerce_credit_balance_response()
+
+    def set_password_compromised(
+        self,
+        *,
+        user_id: str,
+        revoke_all_sessions: OptionalNullable[bool] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Mark a user's password as compromised."""
+
+        _ = revoke_all_sessions, retries, server_url, timeout_ms, http_headers
+
+        return self._get_user_or_error(user_id)
+
+    def unset_password_compromised(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Clear the compromised password flag for a user."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+
+        return self._get_user_or_error(user_id)
 
     def get_instance_organization_memberships(
         self,
@@ -1303,6 +1352,94 @@ class MockUsersClient:
             http_headers=http_headers,
         )
 
+    async def adjust_billing_credit_balance_async(
+        self,
+        *,
+        user_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Async version of adjust_billing_credit_balance."""
+
+        return self.adjust_billing_credit_balance(
+            user_id=user_id,
+            amount=amount,
+            action=action,
+            idempotency_key=idempotency_key,
+            currency=currency,
+            note=note,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def get_billing_credit_balance_async(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Async version of get_billing_credit_balance."""
+
+        return self.get_billing_credit_balance(
+            user_id=user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def set_password_compromised_async(
+        self,
+        *,
+        user_id: str,
+        revoke_all_sessions: OptionalNullable[bool] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Async version of set_password_compromised."""
+
+        return self.set_password_compromised(
+            user_id=user_id,
+            revoke_all_sessions=revoke_all_sessions,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def unset_password_compromised_async(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Async version of unset_password_compromised."""
+
+        return self.unset_password_compromised(
+            user_id=user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
     async def get_instance_organization_memberships_async(
         self,
         *,
@@ -1547,6 +1684,7 @@ class MockUsersClient:
         delete_self_enabled: OptionalNullable[bool] = UNSET,
         legal_accepted_at: OptionalNullable[str] = UNSET,
         skip_legal_checks: OptionalNullable[bool] = UNSET,
+        skip_user_requirement: OptionalNullable[bool] = UNSET,
         create_organization_enabled: OptionalNullable[bool] = UNSET,
         create_organizations_limit: OptionalNullable[int] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
@@ -1580,6 +1718,7 @@ class MockUsersClient:
             delete_self_enabled=delete_self_enabled,
             legal_accepted_at=legal_accepted_at,
             skip_legal_checks=skip_legal_checks,
+            skip_user_requirement=skip_user_requirement,
             create_organization_enabled=create_organization_enabled,
             create_organizations_limit=create_organizations_limit,
             created_at=created_at,
@@ -1724,24 +1863,8 @@ class MockUsersClient:
     async def count_async(
         self,
         *,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        external_id: List[str] | None = None,
-        username: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
-        user_id: List[str] | None = None,
-        organization_id: List[str] | None = None,
-        query: str | None = None,
-        email_address_query: str | None = None,
-        phone_number_query: str | None = None,
-        username_query: str | None = None,
-        name_query: str | None = None,
-        banned: bool | None = None,
-        last_active_at_before: int | None = None,
-        last_active_at_after: int | None = None,
-        last_active_at_since: int | None = None,
-        created_at_before: int | None = None,
-        created_at_after: int | None = None,
+        request: models.GetUsersCountRequest
+        | models.GetUsersCountRequestTypedDict = DEFAULT_GET_USERS_COUNT_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1750,24 +1873,7 @@ class MockUsersClient:
         """Async version of count."""
 
         return self.count(
-            email_address=email_address,
-            phone_number=phone_number,
-            external_id=external_id,
-            username=username,
-            web3_wallet=web3_wallet,
-            user_id=user_id,
-            organization_id=organization_id,
-            query=query,
-            email_address_query=email_address_query,
-            phone_number_query=phone_number_query,
-            username_query=username_query,
-            name_query=name_query,
-            banned=banned,
-            last_active_at_before=last_active_at_before,
-            last_active_at_after=last_active_at_after,
-            last_active_at_since=last_active_at_since,
-            created_at_before=created_at_before,
-            created_at_after=created_at_after,
+            request=request,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
