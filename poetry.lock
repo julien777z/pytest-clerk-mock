@@ -143,14 +143,14 @@ pycparser = {version = "*", markers = "implementation_name != \"PyPy\""}
 
 [[package]]
 name = "clerk-backend-api"
-version = "5.0.2"
+version = "5.0.1"
 description = "Python Client SDK for clerk.dev"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "clerk_backend_api-5.0.2-py3-none-any.whl", hash = "sha256:33e26c678841cdb7072a8de86e0ddbe75cbeb178075dbb6f690e47f6e8426e7e"},
-    {file = "clerk_backend_api-5.0.2.tar.gz", hash = "sha256:289eb90a5a40cab34260062ee1f01f899e574731fb065c57aa822aec70867c27"},
+    {file = "clerk_backend_api-5.0.1-py3-none-any.whl", hash = "sha256:e20377f53187e2d6e1566ad00ef5078175eaaa843c6106ed303840a1277e946b"},
+    {file = "clerk_backend_api-5.0.1.tar.gz", hash = "sha256:309a366192fca72db4280e6d212dda4019ce29f27bf5976290ad846afca6ad2a"},
 ]
 
 [package.dependencies]
@@ -773,4 +773,4 @@ typing-extensions = ">=4.12.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "e9d91af540c4ef2522b2fd2234db7f78a50677cac129d430ba30946db8d50ded"
+content-hash = "ac4cfc78264eabf5050bb1f8f1d707c27a50de158cb0cae21b826d4569e85beb"
