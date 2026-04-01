@@ -12,7 +12,6 @@ from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from clerk_backend_api.types import UNSET, OptionalNullable
 
-from pytest_clerk_mock.models.commerce import MockCommerceSubscription
 from pytest_clerk_mock.models.user import MockClerkUserResponse
 
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
@@ -100,10 +99,10 @@ def build_http_response() -> httpx.Response:
     return httpx.Response(status_code=HTTPStatus.OK, json={})
 
 
-def build_commerce_subscription(*, payer_id: str) -> MockCommerceSubscription:
+def build_commerce_subscription(*, payer_id: str) -> models.CommerceSubscription:
     """Build a minimal CommerceSubscription payload."""
 
-    return MockCommerceSubscription.model_validate(
+    return models.CommerceSubscription.model_validate(
         {
             "object": "commerce_subscription",
             "id": generate_clerk_id("sub"),

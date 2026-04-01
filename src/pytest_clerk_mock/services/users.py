@@ -9,7 +9,6 @@ from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.verifytotpop import CodeType
 from clerk_backend_api.types import UNSET, OptionalNullable
 
-from pytest_clerk_mock.models.commerce import MockCommerceSubscription
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import (
     MockEmailAddress,
@@ -845,7 +844,7 @@ class MockUsersClient:
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> MockCommerceSubscription:
+    ) -> models.CommerceSubscription:
         """Return a placeholder billing subscription for a user."""
 
         _ = retries, server_url, timeout_ms, http_headers
@@ -1293,7 +1292,7 @@ class MockUsersClient:
         server_url: str | None = None,
         timeout_ms: int | None = None,
         http_headers: Mapping[str, str] | None = None,
-    ) -> MockCommerceSubscription:
+    ) -> models.CommerceSubscription:
         """Async version of get_billing_subscription."""
 
         return self.get_billing_subscription(
