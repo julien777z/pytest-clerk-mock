@@ -1,12 +1,12 @@
 import secrets
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any, Final, Generator, TypeVar
 from unittest.mock import MagicMock, patch
 
 import httpx
-from clerk_backend_api import SDKError
-from clerk_backend_api import models
+from clerk_backend_api import SDKError, models
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
@@ -131,6 +131,42 @@ def build_commerce_subscription(*, payer_id: str) -> models.CommerceSubscription
                 }
             ],
         }
+    )
+
+
+def build_commerce_credit_balance_response() -> models.CommerceCreditBalanceResponse:
+    """Build a minimal CommerceCreditBalanceResponse payload."""
+
+    return models.CommerceCreditBalanceResponse(
+        object="commerce_credit_balance",
+        balance=models.Balance(
+            amount=0,
+            amount_formatted="0",
+            currency="usd",
+            currency_symbol="$",
+        ),
+    )
+
+
+def build_commerce_credit_ledger_response(
+    *,
+    payer_id: str,
+    amount: int,
+    currency: str = "usd",
+) -> models.CommerceCreditLedgerResponse:
+    """Build a minimal CommerceCreditLedgerResponse payload."""
+
+    normalized_currency = currency.lower()
+
+    return models.CommerceCreditLedgerResponse(
+        object="commerce_credit_ledger",
+        id=generate_clerk_id("ccl"),
+        payer_id=payer_id,
+        amount=amount,
+        currency=normalized_currency,
+        source_type="adjustment",
+        source_id=generate_clerk_id("src"),
+        created_at=datetime.now(UTC),
     )
 
 

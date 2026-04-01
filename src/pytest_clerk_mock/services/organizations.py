@@ -11,6 +11,8 @@ from clerk_backend_api.types import UNSET, OptionalNullable
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
 from pytest_clerk_mock.models.organization import MockOrganization
 from pytest_clerk_mock.utils import (
+    build_commerce_credit_balance_response,
+    build_commerce_credit_ledger_response,
     build_commerce_subscription,
     build_http_response,
     create_clerk_error,
@@ -291,6 +293,7 @@ class MockOrganizationsClient:
         max_allowed_memberships: OptionalNullable[int] = UNSET,
         admin_delete_enabled: OptionalNullable[bool] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
+        role_set_key: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -312,6 +315,7 @@ class MockOrganizationsClient:
             "name": resolve_optional_nullable(name),
             "slug": resolve_optional_nullable(slug),
             "max_allowed_memberships": resolve_optional_nullable(max_allowed_memberships),
+            "role_set_key": resolve_optional_nullable(role_set_key),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}
         updated_organization = organization.model_copy(update=update_data)
@@ -395,6 +399,55 @@ class MockOrganizationsClient:
         self._get_organization_or_error(organization_id)
 
         return build_commerce_subscription(payer_id=organization_id)
+
+    def adjust_billing_credit_balance(
+        self,
+        *,
+        organization_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Adjust an organization's billing credit balance."""
+
+        _ = (
+            action,
+            idempotency_key,
+            note,
+            retries,
+            server_url,
+            timeout_ms,
+            http_headers,
+        )
+        self._get_organization_or_error(organization_id)
+
+        return build_commerce_credit_ledger_response(
+            payer_id=organization_id,
+            amount=amount,
+            currency=currency or "usd",
+        )
+
+    def get_billing_credit_balance(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Return a placeholder billing credit balance for an organization."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_organization_or_error(organization_id)
+
+        return build_commerce_credit_balance_response()
 
     def merge_metadata(
         self,
@@ -534,6 +587,7 @@ class MockOrganizationsClient:
         max_allowed_memberships: OptionalNullable[int] = UNSET,
         admin_delete_enabled: OptionalNullable[bool] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
+        role_set_key: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -550,6 +604,7 @@ class MockOrganizationsClient:
             max_allowed_memberships=max_allowed_memberships,
             admin_delete_enabled=admin_delete_enabled,
             created_at=created_at,
+            role_set_key=role_set_key,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
@@ -624,6 +679,54 @@ class MockOrganizationsClient:
         """Async version of get_billing_subscription."""
 
         return self.get_billing_subscription(
+            organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def adjust_billing_credit_balance_async(
+        self,
+        *,
+        organization_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Async version of adjust_billing_credit_balance."""
+
+        return self.adjust_billing_credit_balance(
+            organization_id=organization_id,
+            amount=amount,
+            action=action,
+            idempotency_key=idempotency_key,
+            currency=currency,
+            note=note,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def get_billing_credit_balance_async(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Async version of get_billing_credit_balance."""
+
+        return self.get_billing_credit_balance(
             organization_id=organization_id,
             retries=retries,
             server_url=server_url,
