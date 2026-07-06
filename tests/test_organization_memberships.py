@@ -209,6 +209,32 @@ class TestOrganizationMembershipsList:
         assert len(memberships.data) == 1
         assert memberships.data[0].user_id == "user_1"
 
+    def test_list_user_id_filter_handles_one_shot_iterable(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """List materializes a one-shot user_id iterable before its multiple filter passes."""
+
+        for user_id in ("user_1", "user_2", "user_3", "user_4"):
+            mock_clerk.organization_memberships.create(
+                organization_id="org_gen",
+                user_id=user_id,
+                role="org:member",
+            )
+
+        user_id_generator = (value for value in ("user_1", "+user_2", "-user_3"))
+        memberships = mock_clerk.organization_memberships.list(
+            organization_id="org_gen",
+            user_id=user_id_generator,
+            limit=10,
+            offset=0,
+        )
+
+        returned_user_ids = {membership.user_id for membership in memberships.data}
+
+        assert memberships.total_count == 2
+        assert returned_user_ids == {"user_1", "user_2"}
+
     def test_list_filters_by_role(self, mock_clerk: MockClerkClient) -> None:
         """List supports filtering by role."""
 

@@ -233,10 +233,11 @@ class MockOrganizationMembershipsClient:
         self,
         memberships: list[MockOrganizationMembership],
         *,
-        user_ids: list[str] | None,
+        user_ids: Iterable[str] | None,
     ) -> list[MockOrganizationMembership]:
         """Filter memberships by Clerk include/exclude user_id semantics."""
 
+        user_ids = list(user_ids) if user_ids is not None else None
         if not user_ids:
             return memberships
 
