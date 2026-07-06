@@ -1,5 +1,5 @@
 import pytest
-from clerk_backend_api.models import ClerkErrors, GetUserListRequest
+from clerk_backend_api.models import Action, ClerkErrors, GetUserListRequest, GetUsersCountRequest
 
 from pytest_clerk_mock.client import MockClerkClient
 
@@ -330,7 +330,7 @@ class TestUserUpdate:
             public_metadata={"role": "user"},
         )
 
-        updated = mock_clerk.users.update(
+        updated = mock_clerk.users.update_metadata(
             user_id=user.id,
             public_metadata={"role": "admin"},
         )
@@ -401,7 +401,7 @@ class TestUserCount:
         mock_clerk.users.create(email_address=["user2@example.com"], external_id="ext_1")
         mock_clerk.users.create(email_address=["user3@example.com"], external_id="ext_2")
 
-        count = mock_clerk.users.count(external_id=["ext_1"])
+        count = mock_clerk.users.count(request=GetUsersCountRequest(external_id=["ext_1"]))
 
         assert count.total_count == 2
 
@@ -556,6 +556,91 @@ class TestAsyncAPI:
         await mock_clerk.users.create_async(email_address=["user1@example.com"], external_id="ext_1")
         await mock_clerk.users.create_async(email_address=["user2@example.com"], external_id="ext_2")
 
-        count = await mock_clerk.users.count_async(external_id=["ext_1"])
+        count = await mock_clerk.users.count_async(
+            request=GetUsersCountRequest(external_id=["ext_1"])
+        )
 
         assert count.total_count == 1
+
+
+class TestUserCreateIterableInputs:
+    """Tests that create normalizes one-shot iterable inputs safely."""
+
+    def test_create_email_address_accepts_one_shot_iterable(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Create consumes a one-shot email_address iterable without exhausting it mid-pass."""
+
+        user = mock_clerk.users.create(
+            email_address=(value for value in ("gen@example.com",)),
+        )
+
+        assert [email.email_address for email in user.email_addresses] == ["gen@example.com"]
+        assert user.primary_email_address_id is not None
+
+    def test_create_phone_number_accepts_one_shot_iterable(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Create consumes a one-shot phone_number iterable without exhausting it mid-pass."""
+
+        user = mock_clerk.users.create(
+            phone_number=(value for value in ("+15555550123",)),
+        )
+
+        assert [phone.phone_number for phone in user.phone_numbers] == ["+15555550123"]
+        assert user.primary_phone_number_id is not None
+
+
+class TestUserBillingCredit:
+    """Tests for user billing-credit endpoints."""
+
+    def test_adjust_billing_credit_balance_uses_ledger_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Adjusting credit returns a ledger with the SDK object discriminator."""
+
+        user = mock_clerk.users.create(email_address=["credit@example.com"])
+
+        ledger = mock_clerk.users.adjust_billing_credit_balance(
+            user_id=user.id,
+            amount=100,
+            action=Action.INCREASE,
+            idempotency_key="idem_user_1",
+        )
+
+        assert ledger.object == "commerce_credit_ledger"
+        assert ledger.payer_id == user.id
+        assert ledger.amount == 100
+
+    def test_get_billing_credit_balance_uses_balance_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Reading credit returns a balance with the SDK object discriminator."""
+
+        user = mock_clerk.users.create(email_address=["credit2@example.com"])
+
+        balance = mock_clerk.users.get_billing_credit_balance(user_id=user.id)
+
+        assert balance.object == "commerce_credit_balance"
+
+    async def test_adjust_billing_credit_balance_async_uses_ledger_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Async credit adjustment returns a ledger with the SDK object discriminator."""
+
+        user = await mock_clerk.users.create_async(email_address=["credit3@example.com"])
+
+        ledger = await mock_clerk.users.adjust_billing_credit_balance_async(
+            user_id=user.id,
+            amount=-50,
+            action=Action.DECREASE,
+            idempotency_key="idem_user_2",
+        )
+
+        assert ledger.object == "commerce_credit_ledger"
+        assert ledger.payer_id == user.id

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping, Tuple
+from typing import Any, Callable, Iterable, List, Mapping, Tuple
 
 import httpx
 from clerk_backend_api import models, utils
+from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.types import UNSET, OptionalNullable
 
@@ -51,8 +52,8 @@ class MockOrganizationMembershipsClient:
         organization_id: str,
         user_id: str,
         role: str,
-        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        public_metadata: OptionalNullable[Mapping[str, Any]] = UNSET,
+        private_metadata: OptionalNullable[Mapping[str, Any]] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -80,8 +81,8 @@ class MockOrganizationMembershipsClient:
         organization_id: str,
         user_id: str,
         role: str,
-        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        public_metadata: OptionalNullable[Mapping[str, Any]] = UNSET,
+        private_metadata: OptionalNullable[Mapping[str, Any]] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -115,15 +116,15 @@ class MockOrganizationMembershipsClient:
 
     def do_request(
         self,
-        hook_ctx,
-        request,
-        error_status_codes,
-        stream=False,
+        hook_ctx: HookContext,
+        request: httpx.Request,
+        is_error_status_code: Callable[[int], bool],
+        stream: bool = False,
         retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
     ) -> httpx.Response:
         """Return a generic successful response for low-level SDK hooks."""
 
-        _ = hook_ctx, request, error_status_codes, stream, retry_config
+        _ = hook_ctx, request, is_error_status_code, stream, retry_config
 
         return build_http_response()
 
@@ -232,10 +233,11 @@ class MockOrganizationMembershipsClient:
         self,
         memberships: list[MockOrganizationMembership],
         *,
-        user_ids: list[str] | None,
+        user_ids: Iterable[str] | None,
     ) -> list[MockOrganizationMembership]:
         """Filter memberships by Clerk include/exclude user_id semantics."""
 
+        user_ids = list(user_ids) if user_ids is not None else None
         if not user_ids:
             return memberships
 
@@ -306,12 +308,12 @@ class MockOrganizationMembershipsClient:
         *,
         organization_id: str,
         order_by: str | None = None,
-        user_id: List[str] | None = None,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        username: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
-        role: List[str] | None = None,
+        user_id: Iterable[str] | None = None,
+        email_address: Iterable[str] | None = None,
+        phone_number: Iterable[str] | None = None,
+        username: Iterable[str] | None = None,
+        web3_wallet: Iterable[str] | None = None,
+        role: Iterable[str] | None = None,
         query: str | None = None,
         email_address_query: str | None = None,
         phone_number_query: str | None = None,
@@ -331,6 +333,13 @@ class MockOrganizationMembershipsClient:
         """List memberships with Clerk-compatible filter parameters."""
 
         _ = retries, server_url, timeout_ms, http_headers
+        user_id = list(user_id) if user_id is not None else None
+        email_address = list(email_address) if email_address is not None else None
+        phone_number = list(phone_number) if phone_number is not None else None
+        username = list(username) if username is not None else None
+        web3_wallet = list(web3_wallet) if web3_wallet is not None else None
+        role = list(role) if role is not None else None
+
         memberships: list[MockOrganizationMembership] = [
             membership
             for membership in self._memberships.values()
@@ -416,12 +425,12 @@ class MockOrganizationMembershipsClient:
         *,
         organization_id: str,
         order_by: str | None = None,
-        user_id: List[str] | None = None,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        username: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
-        role: List[str] | None = None,
+        user_id: Iterable[str] | None = None,
+        email_address: Iterable[str] | None = None,
+        phone_number: Iterable[str] | None = None,
+        username: Iterable[str] | None = None,
+        web3_wallet: Iterable[str] | None = None,
+        role: Iterable[str] | None = None,
         query: str | None = None,
         email_address_query: str | None = None,
         phone_number_query: str | None = None,
@@ -493,8 +502,8 @@ class MockOrganizationMembershipsClient:
         *,
         organization_id: str,
         user_id: str,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -549,8 +558,8 @@ class MockOrganizationMembershipsClient:
         *,
         organization_id: str,
         user_id: str,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -611,10 +620,10 @@ class MockOrganizationMembershipsClient:
 
     async def do_request_async(
         self,
-        hook_ctx,
-        request,
-        error_status_codes,
-        stream=False,
+        hook_ctx: HookContext,
+        request: httpx.Request,
+        is_error_status_code: Callable[[int], bool],
+        stream: bool = False,
         retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
     ) -> httpx.Response:
         """Async version of do_request."""
@@ -622,7 +631,7 @@ class MockOrganizationMembershipsClient:
         return self.do_request(
             hook_ctx,
             request,
-            error_status_codes,
+            is_error_status_code,
             stream=stream,
             retry_config=retry_config,
         )

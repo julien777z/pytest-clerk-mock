@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, Dict, Final, List, Mapping, Tuple
+from typing import Any, Callable, Final, Iterable, List, Mapping, Tuple
 
 import httpx
 from clerk_backend_api import models, utils
+from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
-from pytest_clerk_mock.models.organization import MockOrganization
+from pytest_clerk_mock.models.organization import MockOrganization, MockOrganizationsResponse
 from pytest_clerk_mock.utils import (
+    build_commerce_credit_balance_response,
+    build_commerce_credit_ledger_response,
     build_commerce_subscription,
     build_http_response,
     create_clerk_error,
@@ -22,6 +25,7 @@ from pytest_clerk_mock.utils import (
 RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 ORGANIZATION_NOT_FOUND_RESPONSE_TEXT: Final[str] = "Organization not found."
 DEFAULT_MAX_ALLOWED_MEMBERSHIPS: Final[int] = 0
+DEFAULT_CURRENCY: Final[str] = "usd"
 
 def _resolve_metadata(
     metadata: OptionalNullable[MetadataDict] | None,
@@ -223,8 +227,8 @@ class MockOrganizationsClient:
         include_members_count: bool | None = None,
         include_missing_member_with_elevated_permissions: bool | None = None,
         query: str | None = None,
-        user_id: List[str] | None = None,
-        organization_id: List[str] | None = None,
+        user_id: Iterable[str] | None = None,
+        organization_id: Iterable[str] | None = None,
         order_by: str | None = "-created_at",
         limit: int | None = 10,
         offset: int | None = 0,
@@ -234,6 +238,9 @@ class MockOrganizationsClient:
         http_headers: Mapping[str, str] | None = None,
     ) -> models.Organizations:
         """List organizations with Clerk-style filters."""
+
+        user_id = list(user_id) if user_id is not None else None
+        organization_id = list(organization_id) if organization_id is not None else None
 
         _ = (
             include_members_count,
@@ -278,19 +285,18 @@ class MockOrganizationsClient:
         resolved_limit = limit or 10
         organizations = organizations[resolved_offset : resolved_offset + resolved_limit]
 
-        return models.Organizations(data=organizations, total_count=total_count)
+        return MockOrganizationsResponse(data=organizations, total_count=total_count)
 
     def update(
         self,
         *,
         organization_id: str,
-        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
         name: OptionalNullable[str] = UNSET,
         slug: OptionalNullable[str] = UNSET,
         max_allowed_memberships: OptionalNullable[int] = UNSET,
         admin_delete_enabled: OptionalNullable[bool] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
+        role_set_key: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -307,11 +313,10 @@ class MockOrganizationsClient:
             http_headers=http_headers,
         )
         update_data = {
-            "public_metadata": _resolve_metadata(public_metadata),
-            "private_metadata": _resolve_metadata(private_metadata),
             "name": resolve_optional_nullable(name),
             "slug": resolve_optional_nullable(slug),
             "max_allowed_memberships": resolve_optional_nullable(max_allowed_memberships),
+            "role_set_key": resolve_optional_nullable(role_set_key),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}
         updated_organization = organization.model_copy(update=update_data)
@@ -368,15 +373,15 @@ class MockOrganizationsClient:
 
     def do_request(
         self,
-        hook_ctx,
-        request,
-        error_status_codes,
-        stream=False,
+        hook_ctx: HookContext,
+        request: httpx.Request,
+        is_error_status_code: Callable[[int], bool],
+        stream: bool = False,
         retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
     ) -> httpx.Response:
         """Return a generic successful response for low-level SDK hooks."""
 
-        _ = hook_ctx, request, error_status_codes, stream, retry_config
+        _ = hook_ctx, request, is_error_status_code, stream, retry_config
 
         return build_http_response()
 
@@ -400,8 +405,8 @@ class MockOrganizationsClient:
         self,
         *,
         organization_id: str,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -411,12 +416,15 @@ class MockOrganizationsClient:
 
         _ = retries, server_url, timeout_ms, http_headers
         organization = self._get_organization_or_error(organization_id)
-
-        return self.update(
-            organization_id=organization_id,
-            public_metadata={**organization.public_metadata, **(public_metadata or {})},
-            private_metadata={**organization.private_metadata, **(private_metadata or {})},
+        updated_organization = organization.model_copy(
+            update={
+                "public_metadata": {**organization.public_metadata, **(public_metadata or {})},
+                "private_metadata": {**organization.private_metadata, **(private_metadata or {})},
+            }
         )
+        self._organizations[organization_id] = updated_organization
+
+        return updated_organization
 
     def upload_logo(
         self,
@@ -473,8 +481,8 @@ class MockOrganizationsClient:
         include_members_count: bool | None = None,
         include_missing_member_with_elevated_permissions: bool | None = None,
         query: str | None = None,
-        user_id: List[str] | None = None,
-        organization_id: List[str] | None = None,
+        user_id: Iterable[str] | None = None,
+        organization_id: Iterable[str] | None = None,
         order_by: str | None = "-created_at",
         limit: int | None = 10,
         offset: int | None = 0,
@@ -527,13 +535,12 @@ class MockOrganizationsClient:
         self,
         *,
         organization_id: str,
-        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
         name: OptionalNullable[str] = UNSET,
         slug: OptionalNullable[str] = UNSET,
         max_allowed_memberships: OptionalNullable[int] = UNSET,
         admin_delete_enabled: OptionalNullable[bool] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
+        role_set_key: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -543,13 +550,12 @@ class MockOrganizationsClient:
 
         return self.update(
             organization_id=organization_id,
-            public_metadata=public_metadata,
-            private_metadata=private_metadata,
             name=name,
             slug=slug,
             max_allowed_memberships=max_allowed_memberships,
             admin_delete_enabled=admin_delete_enabled,
             created_at=created_at,
+            role_set_key=role_set_key,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
@@ -596,10 +602,10 @@ class MockOrganizationsClient:
 
     async def do_request_async(
         self,
-        hook_ctx,
-        request,
-        error_status_codes,
-        stream=False,
+        hook_ctx: HookContext,
+        request: httpx.Request,
+        is_error_status_code: Callable[[int], bool],
+        stream: bool = False,
         retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
     ) -> httpx.Response:
         """Async version of do_request."""
@@ -607,7 +613,7 @@ class MockOrganizationsClient:
         return self.do_request(
             hook_ctx,
             request,
-            error_status_codes,
+            is_error_status_code,
             stream=stream,
             retry_config=retry_config,
         )
@@ -635,8 +641,8 @@ class MockOrganizationsClient:
         self,
         *,
         organization_id: str,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -671,6 +677,146 @@ class MockOrganizationsClient:
             organization_id=organization_id,
             file=file,
             uploader_user_id=uploader_user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    def adjust_billing_credit_balance(
+        self,
+        *,
+        organization_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Adjust an organization's billing credit balance."""
+
+        _ = action, idempotency_key, note, retries, server_url, timeout_ms, http_headers
+        self._get_organization_or_error(organization_id)
+
+        return build_commerce_credit_ledger_response(
+            payer_id=organization_id,
+            amount=amount,
+            currency=currency or DEFAULT_CURRENCY,
+        )
+
+    def get_billing_credit_balance(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Return a placeholder billing credit balance for an organization."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_organization_or_error(organization_id)
+
+        return build_commerce_credit_balance_response()
+
+    def replace_metadata(
+        self,
+        *,
+        organization_id: str,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Replace metadata on an organization."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        organization = self._get_organization_or_error(organization_id)
+        update_data: dict[str, Any] = {}
+
+        if public_metadata is not None:
+            update_data["public_metadata"] = dict(public_metadata)
+
+        if private_metadata is not None:
+            update_data["private_metadata"] = dict(private_metadata)
+
+        updated_organization = organization.model_copy(update=update_data)
+        self._organizations[organization_id] = updated_organization
+
+        return updated_organization
+
+    async def adjust_billing_credit_balance_async(
+        self,
+        *,
+        organization_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Async version of adjust_billing_credit_balance."""
+
+        return self.adjust_billing_credit_balance(
+            organization_id=organization_id,
+            amount=amount,
+            action=action,
+            idempotency_key=idempotency_key,
+            currency=currency,
+            note=note,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def get_billing_credit_balance_async(
+        self,
+        *,
+        organization_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Async version of get_billing_credit_balance."""
+
+        return self.get_billing_credit_balance(
+            organization_id=organization_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def replace_metadata_async(
+        self,
+        *,
+        organization_id: str,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.Organization:
+        """Async version of replace_metadata."""
+
+        return self.replace_metadata(
+            organization_id=organization_id,
+            public_metadata=public_metadata,
+            private_metadata=private_metadata,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,

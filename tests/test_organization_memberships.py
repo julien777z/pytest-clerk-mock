@@ -209,6 +209,109 @@ class TestOrganizationMembershipsList:
         assert len(memberships.data) == 1
         assert memberships.data[0].user_id == "user_1"
 
+    def test_list_user_id_filter_handles_one_shot_iterable(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """List materializes a one-shot user_id iterable before its multiple filter passes."""
+
+        for user_id in ("user_1", "user_2", "user_3", "user_4"):
+            mock_clerk.organization_memberships.create(
+                organization_id="org_gen",
+                user_id=user_id,
+                role="org:member",
+            )
+
+        user_id_generator = (value for value in ("user_1", "+user_2", "-user_3"))
+        memberships = mock_clerk.organization_memberships.list(
+            organization_id="org_gen",
+            user_id=user_id_generator,
+            limit=10,
+            offset=0,
+        )
+
+        returned_user_ids = {membership.user_id for membership in memberships.data}
+
+        assert memberships.total_count == 2
+        assert returned_user_ids == {"user_1", "user_2"}
+
+    def test_list_user_id_empty_generator_leaves_results_unfiltered(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """An empty user_id generator leaves memberships unfiltered instead of returning none."""
+
+        for user_id in ("user_1", "user_2"):
+            mock_clerk.organization_memberships.create(
+                organization_id="org_empty_uid",
+                user_id=user_id,
+                role="org:member",
+            )
+
+        memberships = mock_clerk.organization_memberships.list(
+            organization_id="org_empty_uid",
+            user_id=(value for value in ()),
+            limit=10,
+            offset=0,
+        )
+
+        assert memberships.total_count == 2
+        assert {membership.user_id for membership in memberships.data} == {"user_1", "user_2"}
+
+    def test_list_role_empty_generator_leaves_results_unfiltered(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """An empty role generator leaves memberships unfiltered instead of returning none."""
+
+        mock_clerk.organization_memberships.create(
+            organization_id="org_empty_role",
+            user_id="user_1",
+            role="org:member",
+        )
+        mock_clerk.organization_memberships.create(
+            organization_id="org_empty_role",
+            user_id="user_2",
+            role="org:admin",
+        )
+
+        memberships = mock_clerk.organization_memberships.list(
+            organization_id="org_empty_role",
+            role=(value for value in ()),
+            limit=10,
+            offset=0,
+        )
+
+        assert memberships.total_count == 2
+
+    def test_list_role_nonempty_generator_filters_correctly(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """A one-shot role generator filters memberships correctly."""
+
+        mock_clerk.organization_memberships.create(
+            organization_id="org_gen_role",
+            user_id="user_1",
+            role="org:member",
+        )
+        mock_clerk.organization_memberships.create(
+            organization_id="org_gen_role",
+            user_id="user_2",
+            role="org:admin",
+        )
+
+        memberships = mock_clerk.organization_memberships.list(
+            organization_id="org_gen_role",
+            role=(value for value in ("org:admin",)),
+            limit=10,
+            offset=0,
+        )
+
+        assert memberships.total_count == 1
+        assert memberships.data[0].user_id == "user_2"
+        assert memberships.data[0].role == "org:admin"
+
     def test_list_filters_by_role(self, mock_clerk: MockClerkClient) -> None:
         """List supports filtering by role."""
 

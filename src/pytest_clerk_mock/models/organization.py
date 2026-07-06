@@ -23,6 +23,7 @@ class MockOrganization(BaseModel):
     missing_member_with_elevated_permissions: bool | None = None
     pending_invitations_count: int | None = None
     last_active_at: int | None = None
+    role_set_key: str | None = None
 
 
 class MockOrganizationMembership(BaseModel):
@@ -47,4 +48,11 @@ class MockOrganizationMembershipsResponse(BaseModel):
     """Response from get_organization_memberships_async."""
 
     data: list[MockOrganizationMembership] = Field(default_factory=list)
+    total_count: int = 0
+
+
+class MockOrganizationsResponse(BaseModel):
+    """Response from organizations.list."""
+
+    data: list[MockOrganization] = Field(default_factory=list)
     total_count: int = 0

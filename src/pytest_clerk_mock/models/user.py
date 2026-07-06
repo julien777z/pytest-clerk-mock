@@ -97,6 +97,8 @@ class MockUser(BaseModel):
     mfa_disabled_at: int | None = None
     mfa_enabled_at: int | None = None
     bypass_client_trust: bool = False
+    deprovisioned: bool | None = None
+    scim: dict | None = None
 
 
 class MockClerkUserResponse(BaseModel):
