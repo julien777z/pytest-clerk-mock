@@ -227,6 +227,9 @@ class MockUsersClient:
             http_headers,
         )
 
+        email_address = list(email_address) if email_address is not None else None
+        phone_number = list(phone_number) if phone_number is not None else None
+
         if email_address:
             for email in email_address:
                 if email.lower() in self._emails:

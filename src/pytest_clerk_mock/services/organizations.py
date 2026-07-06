@@ -10,7 +10,7 @@ from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
-from pytest_clerk_mock.models.organization import MockOrganization
+from pytest_clerk_mock.models.organization import MockOrganization, MockOrganizationsResponse
 from pytest_clerk_mock.utils import (
     build_commerce_credit_balance_response,
     build_commerce_credit_ledger_response,
@@ -239,6 +239,9 @@ class MockOrganizationsClient:
     ) -> models.Organizations:
         """List organizations with Clerk-style filters."""
 
+        user_id = list(user_id) if user_id is not None else None
+        organization_id = list(organization_id) if organization_id is not None else None
+
         _ = (
             include_members_count,
             include_missing_member_with_elevated_permissions,
@@ -282,7 +285,7 @@ class MockOrganizationsClient:
         resolved_limit = limit or 10
         organizations = organizations[resolved_offset : resolved_offset + resolved_limit]
 
-        return models.Organizations(data=organizations, total_count=total_count)
+        return MockOrganizationsResponse(data=organizations, total_count=total_count)
 
     def update(
         self,

@@ -563,6 +563,36 @@ class TestAsyncAPI:
         assert count.total_count == 1
 
 
+class TestUserCreateIterableInputs:
+    """Tests that create normalizes one-shot iterable inputs safely."""
+
+    def test_create_email_address_accepts_one_shot_iterable(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Create consumes a one-shot email_address iterable without exhausting it mid-pass."""
+
+        user = mock_clerk.users.create(
+            email_address=(value for value in ("gen@example.com",)),
+        )
+
+        assert [email.email_address for email in user.email_addresses] == ["gen@example.com"]
+        assert user.primary_email_address_id is not None
+
+    def test_create_phone_number_accepts_one_shot_iterable(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Create consumes a one-shot phone_number iterable without exhausting it mid-pass."""
+
+        user = mock_clerk.users.create(
+            phone_number=(value for value in ("+15555550123",)),
+        )
+
+        assert [phone.phone_number for phone in user.phone_numbers] == ["+15555550123"]
+        assert user.primary_phone_number_id is not None
+
+
 class TestUserBillingCredit:
     """Tests for user billing-credit endpoints."""
 

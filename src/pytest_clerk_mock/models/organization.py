@@ -49,3 +49,10 @@ class MockOrganizationMembershipsResponse(BaseModel):
 
     data: list[MockOrganizationMembership] = Field(default_factory=list)
     total_count: int = 0
+
+
+class MockOrganizationsResponse(BaseModel):
+    """Response from organizations.list."""
+
+    data: list[MockOrganization] = Field(default_factory=list)
+    total_count: int = 0

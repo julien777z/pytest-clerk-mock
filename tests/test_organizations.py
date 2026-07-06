@@ -186,6 +186,46 @@ class TestOrganizationReset:
             mock_clerk.organizations.get(organization_id="org_2")
 
 
+class TestOrganizationListIterableFilters:
+    """Tests that list filters normalize one-shot iterables safely."""
+
+    def test_list_organization_id_empty_generator_leaves_results_unfiltered(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """An empty organization_id generator leaves organizations unfiltered."""
+
+        mock_clerk.organizations.add("org_a", name="Org A")
+        mock_clerk.organizations.add("org_b", name="Org B")
+
+        result = mock_clerk.organizations.list(
+            organization_id=(value for value in ()),
+            limit=10,
+            offset=0,
+        )
+
+        assert result.total_count == 2
+        assert {organization.id for organization in result.data} == {"org_a", "org_b"}
+
+    def test_list_organization_id_nonempty_generator_filters_correctly(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """A one-shot organization_id generator filters organizations correctly."""
+
+        mock_clerk.organizations.add("org_a", name="Org A")
+        mock_clerk.organizations.add("org_b", name="Org B")
+
+        result = mock_clerk.organizations.list(
+            organization_id=(value for value in ("org_a",)),
+            limit=10,
+            offset=0,
+        )
+
+        assert result.total_count == 1
+        assert result.data[0].id == "org_a"
+
+
 class TestOrganizationBillingCredit:
     """Tests for organization billing-credit endpoints."""
 

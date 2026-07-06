@@ -333,6 +333,13 @@ class MockOrganizationMembershipsClient:
         """List memberships with Clerk-compatible filter parameters."""
 
         _ = retries, server_url, timeout_ms, http_headers
+        user_id = list(user_id) if user_id is not None else None
+        email_address = list(email_address) if email_address is not None else None
+        phone_number = list(phone_number) if phone_number is not None else None
+        username = list(username) if username is not None else None
+        web3_wallet = list(web3_wallet) if web3_wallet is not None else None
+        role = list(role) if role is not None else None
+
         memberships: list[MockOrganizationMembership] = [
             membership
             for membership in self._memberships.values()
