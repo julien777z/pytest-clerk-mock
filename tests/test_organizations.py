@@ -1,5 +1,5 @@
 import pytest
-from clerk_backend_api.models import ClerkErrors
+from clerk_backend_api.models import Action, ClerkErrors
 
 from pytest_clerk_mock import (
     MockClerkClient,
@@ -184,3 +184,40 @@ class TestOrganizationReset:
 
         with pytest.raises(ClerkErrors):
             mock_clerk.organizations.get(organization_id="org_2")
+
+
+class TestOrganizationBillingCredit:
+    """Tests for organization billing-credit endpoints."""
+
+    def test_adjust_billing_credit_balance_uses_ledger_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Adjusting credit returns a ledger with the SDK object discriminator."""
+
+        mock_clerk.organizations.add("org_credit", name="Credit Org")
+
+        ledger = mock_clerk.organizations.adjust_billing_credit_balance(
+            organization_id="org_credit",
+            amount=250,
+            action=Action.INCREASE,
+            idempotency_key="idem_org_1",
+        )
+
+        assert ledger.object == "commerce_credit_ledger"
+        assert ledger.payer_id == "org_credit"
+        assert ledger.amount == 250
+
+    def test_get_billing_credit_balance_uses_balance_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Reading credit returns a balance with the SDK object discriminator."""
+
+        mock_clerk.organizations.add("org_credit_2", name="Credit Org 2")
+
+        balance = mock_clerk.organizations.get_billing_credit_balance(
+            organization_id="org_credit_2",
+        )
+
+        assert balance.object == "commerce_credit_balance"

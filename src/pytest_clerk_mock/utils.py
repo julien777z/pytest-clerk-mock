@@ -144,7 +144,7 @@ def build_commerce_credit_ledger_response(
     """Build a minimal CommerceCreditLedgerResponse payload."""
 
     return models.CommerceCreditLedgerResponse(
-        object="commerce_credit_ledger_entry",
+        object="commerce_credit_ledger",
         id=generate_clerk_id("credit"),
         payer_id=payer_id,
         amount=amount,

@@ -1,5 +1,5 @@
 import pytest
-from clerk_backend_api.models import ClerkErrors, GetUserListRequest, GetUsersCountRequest
+from clerk_backend_api.models import Action, ClerkErrors, GetUserListRequest, GetUsersCountRequest
 
 from pytest_clerk_mock.client import MockClerkClient
 
@@ -561,3 +561,56 @@ class TestAsyncAPI:
         )
 
         assert count.total_count == 1
+
+
+class TestUserBillingCredit:
+    """Tests for user billing-credit endpoints."""
+
+    def test_adjust_billing_credit_balance_uses_ledger_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Adjusting credit returns a ledger with the SDK object discriminator."""
+
+        user = mock_clerk.users.create(email_address=["credit@example.com"])
+
+        ledger = mock_clerk.users.adjust_billing_credit_balance(
+            user_id=user.id,
+            amount=100,
+            action=Action.INCREASE,
+            idempotency_key="idem_user_1",
+        )
+
+        assert ledger.object == "commerce_credit_ledger"
+        assert ledger.payer_id == user.id
+        assert ledger.amount == 100
+
+    def test_get_billing_credit_balance_uses_balance_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Reading credit returns a balance with the SDK object discriminator."""
+
+        user = mock_clerk.users.create(email_address=["credit2@example.com"])
+
+        balance = mock_clerk.users.get_billing_credit_balance(user_id=user.id)
+
+        assert balance.object == "commerce_credit_balance"
+
+    async def test_adjust_billing_credit_balance_async_uses_ledger_discriminator(
+        self,
+        mock_clerk: MockClerkClient,
+    ) -> None:
+        """Async credit adjustment returns a ledger with the SDK object discriminator."""
+
+        user = await mock_clerk.users.create_async(email_address=["credit3@example.com"])
+
+        ledger = await mock_clerk.users.adjust_billing_credit_balance_async(
+            user_id=user.id,
+            amount=-50,
+            action=Action.DECREASE,
+            idempotency_key="idem_user_2",
+        )
+
+        assert ledger.object == "commerce_credit_ledger"
+        assert ledger.payer_id == user.id
