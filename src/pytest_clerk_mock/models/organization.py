@@ -23,6 +23,7 @@ class MockOrganization(BaseModel):
     missing_member_with_elevated_permissions: bool | None = None
     pending_invitations_count: int | None = None
     last_active_at: int | None = None
+    role_set_key: str | None = None
 
 
 class MockOrganizationMembership(BaseModel):

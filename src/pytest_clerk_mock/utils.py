@@ -1,15 +1,16 @@
 import secrets
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from http import HTTPStatus
 from typing import Any, Final, Generator, TypeVar
 from unittest.mock import MagicMock, patch
 
 import httpx
-from clerk_backend_api import SDKError
-from clerk_backend_api import models
+from clerk_backend_api import SDKError, models
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.clerkerror import ClerkError
 from clerk_backend_api.models.clerkerrors import ClerkErrorsData
+from clerk_backend_api.models.commercecreditbalanceresponse import Balance
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.models.user import MockClerkUserResponse
@@ -131,6 +132,43 @@ def build_commerce_subscription(*, payer_id: str) -> models.CommerceSubscription
                 }
             ],
         }
+    )
+
+
+def build_commerce_credit_ledger_response(
+    *,
+    payer_id: str,
+    amount: int,
+    currency: str,
+) -> models.CommerceCreditLedgerResponse:
+    """Build a minimal CommerceCreditLedgerResponse payload."""
+
+    return models.CommerceCreditLedgerResponse(
+        object="commerce_credit_ledger_entry",
+        id=generate_clerk_id("credit"),
+        payer_id=payer_id,
+        amount=amount,
+        currency=currency,
+        source_type="adjustment",
+        source_id=generate_clerk_id("src"),
+        created_at=datetime.now(UTC),
+    )
+
+
+def build_commerce_credit_balance_response(
+    *,
+    currency: str = "usd",
+) -> models.CommerceCreditBalanceResponse:
+    """Build a minimal CommerceCreditBalanceResponse payload."""
+
+    return models.CommerceCreditBalanceResponse(
+        object="commerce_credit_balance",
+        balance=Balance(
+            amount=0,
+            amount_formatted="0.00",
+            currency=currency,
+            currency_symbol="$",
+        ),
     )
 
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import Any, Dict, Final, List, Mapping, Tuple
+from typing import Any, Callable, Final, Iterable, List, Mapping, Tuple
 
 import httpx
 from clerk_backend_api import models, utils
+from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.verifytotpop import CodeType
 from clerk_backend_api.types import UNSET, OptionalNullable
@@ -16,6 +17,8 @@ from pytest_clerk_mock.models.user import (
     MockUser,
 )
 from pytest_clerk_mock.utils import (
+    build_commerce_credit_balance_response,
+    build_commerce_credit_ledger_response,
     build_commerce_subscription,
     build_http_response,
     create_clerk_error,
@@ -29,7 +32,9 @@ RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
+DEFAULT_CURRENCY: Final[str] = "usd"
 DEFAULT_GET_USER_LIST_REQUEST: Final[models.GetUserListRequest] = models.GetUserListRequest()
+DEFAULT_GET_USERS_COUNT_REQUEST: Final[models.GetUsersCountRequest] = models.GetUsersCountRequest()
 
 
 def _create_email_exists_error(email: str) -> ClerkErrors:
@@ -164,9 +169,15 @@ class MockUsersClient:
         first_name: OptionalNullable[str] = UNSET,
         last_name: OptionalNullable[str] = UNSET,
         locale: OptionalNullable[str] = UNSET,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
+        email_address: Iterable[str] | None = None,
+        email_address_identification_status: (
+            Iterable[models.EmailAddressIdentificationStatus] | None
+        ) = None,
+        phone_number: Iterable[str] | None = None,
+        phone_number_identification_status: (
+            Iterable[models.PhoneNumberIdentificationStatus] | None
+        ) = None,
+        web3_wallet: Iterable[str] | None = None,
         username: OptionalNullable[str] = UNSET,
         password: OptionalNullable[str] = UNSET,
         password_digest: OptionalNullable[str] = UNSET,
@@ -174,17 +185,20 @@ class MockUsersClient:
         skip_password_checks: OptionalNullable[bool] = UNSET,
         skip_password_requirement: OptionalNullable[bool] = UNSET,
         totp_secret: OptionalNullable[str] = UNSET,
-        backup_codes: List[str] | None = None,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
-        unsafe_metadata: Dict[str, Any] | None = None,
+        backup_codes: Iterable[str] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        unsafe_metadata: Mapping[str, Any] | None = None,
         delete_self_enabled: OptionalNullable[bool] = UNSET,
         legal_accepted_at: OptionalNullable[str] = UNSET,
         skip_legal_checks: OptionalNullable[bool] = UNSET,
+        skip_user_requirement: OptionalNullable[bool] = UNSET,
         create_organization_enabled: OptionalNullable[bool] = UNSET,
         create_organizations_limit: OptionalNullable[int] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
         bypass_client_trust: OptionalNullable[bool] = UNSET,
+        banned: OptionalNullable[bool] = UNSET,
+        locked: OptionalNullable[bool] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -193,6 +207,8 @@ class MockUsersClient:
         """Create a new user."""
 
         _ = (
+            email_address_identification_status,
+            phone_number_identification_status,
             web3_wallet,
             password_digest,
             password_hasher,
@@ -202,6 +218,7 @@ class MockUsersClient:
             backup_codes,
             legal_accepted_at,
             skip_legal_checks,
+            skip_user_requirement,
             created_at,
             bypass_client_trust,
             retries,
@@ -260,6 +277,8 @@ class MockUsersClient:
             create_organization_enabled=resolve_optional_nullable(create_organization_enabled) or True,
             create_organizations_limit=resolve_optional_nullable(create_organizations_limit),
             bypass_client_trust=resolve_optional_nullable(bypass_client_trust) or False,
+            banned=resolve_optional_nullable(banned) or False,
+            locked=resolve_optional_nullable(locked) or False,
         )
 
         self._users[user_id] = user
@@ -474,10 +493,7 @@ class MockUsersClient:
         skip_password_checks: OptionalNullable[bool] = UNSET,
         sign_out_of_other_sessions: OptionalNullable[bool] = UNSET,
         totp_secret: OptionalNullable[str] = UNSET,
-        backup_codes: List[str] | None = None,
-        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        unsafe_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        backup_codes: Iterable[str] | None = None,
         delete_self_enabled: OptionalNullable[bool] = UNSET,
         create_organization_enabled: OptionalNullable[bool] = UNSET,
         legal_accepted_at: OptionalNullable[str] = UNSET,
@@ -521,9 +537,6 @@ class MockUsersClient:
             "primary_email_address_id": resolve_optional_nullable(primary_email_address_id),
             "primary_phone_number_id": resolve_optional_nullable(primary_phone_number_id),
             "username": resolve_optional_nullable(username),
-            "public_metadata": resolve_optional_nullable(public_metadata),
-            "private_metadata": resolve_optional_nullable(private_metadata),
-            "unsafe_metadata": resolve_optional_nullable(unsafe_metadata),
             "delete_self_enabled": resolve_optional_nullable(delete_self_enabled),
             "create_organization_enabled": resolve_optional_nullable(create_organization_enabled),
             "create_organizations_limit": resolve_optional_nullable(create_organizations_limit),
@@ -560,24 +573,8 @@ class MockUsersClient:
     def count(
         self,
         *,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        external_id: List[str] | None = None,
-        username: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
-        user_id: List[str] | None = None,
-        organization_id: List[str] | None = None,
-        query: str | None = None,
-        email_address_query: str | None = None,
-        phone_number_query: str | None = None,
-        username_query: str | None = None,
-        name_query: str | None = None,
-        banned: bool | None = None,
-        last_active_at_before: int | None = None,
-        last_active_at_after: int | None = None,
-        last_active_at_since: int | None = None,
-        created_at_before: int | None = None,
-        created_at_after: int | None = None,
+        request: models.GetUsersCountRequest
+        | models.GetUsersCountRequestTypedDict = DEFAULT_GET_USERS_COUNT_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -588,24 +585,24 @@ class MockUsersClient:
         _ = retries, server_url, timeout_ms, http_headers
         users = self.list(
             request=models.GetUserListRequest(
-                email_address=email_address,
-                phone_number=phone_number,
-                external_id=external_id,
-                username=username,
-                web3_wallet=web3_wallet,
-                user_id=user_id,
-                organization_id=organization_id,
-                query=query,
-                email_address_query=email_address_query,
-                phone_number_query=phone_number_query,
-                username_query=username_query,
-                name_query=name_query,
-                banned=banned,
-                last_active_at_before=last_active_at_before,
-                last_active_at_after=last_active_at_after,
-                last_active_at_since=last_active_at_since,
-                created_at_before=created_at_before,
-                created_at_after=created_at_after,
+                email_address=get_request_value(request, "email_address"),
+                phone_number=get_request_value(request, "phone_number"),
+                external_id=get_request_value(request, "external_id"),
+                username=get_request_value(request, "username"),
+                web3_wallet=get_request_value(request, "web3_wallet"),
+                user_id=get_request_value(request, "user_id"),
+                organization_id=get_request_value(request, "organization_id"),
+                query=get_request_value(request, "query"),
+                email_address_query=get_request_value(request, "email_address_query"),
+                phone_number_query=get_request_value(request, "phone_number_query"),
+                username_query=get_request_value(request, "username_query"),
+                name_query=get_request_value(request, "name_query"),
+                banned=get_request_value(request, "banned"),
+                last_active_at_before=get_request_value(request, "last_active_at_before"),
+                last_active_at_after=get_request_value(request, "last_active_at_after"),
+                last_active_at_since=get_request_value(request, "last_active_at_since"),
+                created_at_before=get_request_value(request, "created_at_before"),
+                created_at_after=get_request_value(request, "created_at_after"),
                 limit=999999,
             ),
         )
@@ -662,7 +659,7 @@ class MockUsersClient:
     def bulk_ban(
         self,
         *,
-        user_ids: List[str],
+        user_ids: Iterable[str],
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -677,7 +674,7 @@ class MockUsersClient:
     def bulk_unban(
         self,
         *,
-        user_ids: List[str],
+        user_ids: Iterable[str],
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -824,15 +821,15 @@ class MockUsersClient:
 
     def do_request(
         self,
-        hook_ctx,
-        request,
-        error_status_codes,
-        stream=False,
+        hook_ctx: HookContext,
+        request: httpx.Request,
+        is_error_status_code: Callable[[int], bool],
+        stream: bool = False,
         retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
     ) -> httpx.Response:
         """Return a generic successful response for low-level SDK hooks."""
 
-        _ = hook_ctx, request, error_status_codes, stream, retry_config
+        _ = hook_ctx, request, is_error_status_code, stream, retry_config
 
         return build_http_response()
 
@@ -983,9 +980,9 @@ class MockUsersClient:
         self,
         *,
         user_id: str,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
-        unsafe_metadata: Dict[str, Any] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        unsafe_metadata: Mapping[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1092,7 +1089,7 @@ class MockUsersClient:
     async def bulk_ban_async(
         self,
         *,
-        user_ids: List[str],
+        user_ids: Iterable[str],
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1111,7 +1108,7 @@ class MockUsersClient:
     async def bulk_unban_async(
         self,
         *,
-        user_ids: List[str],
+        user_ids: Iterable[str],
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1268,10 +1265,10 @@ class MockUsersClient:
 
     async def do_request_async(
         self,
-        hook_ctx,
-        request,
-        error_status_codes,
-        stream=False,
+        hook_ctx: HookContext,
+        request: httpx.Request,
+        is_error_status_code: Callable[[int], bool],
+        stream: bool = False,
         retry_config: Tuple[utils.RetryConfig, List[str]] | None = None,
     ) -> httpx.Response:
         """Async version of do_request."""
@@ -1279,7 +1276,7 @@ class MockUsersClient:
         return self.do_request(
             hook_ctx,
             request,
-            error_status_codes,
+            is_error_status_code,
             stream=stream,
             retry_config=retry_config,
         )
@@ -1460,9 +1457,9 @@ class MockUsersClient:
         self,
         *,
         user_id: str,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
-        unsafe_metadata: Dict[str, Any] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        unsafe_metadata: Mapping[str, Any] | None = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1530,9 +1527,15 @@ class MockUsersClient:
         first_name: OptionalNullable[str] = UNSET,
         last_name: OptionalNullable[str] = UNSET,
         locale: OptionalNullable[str] = UNSET,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
+        email_address: Iterable[str] | None = None,
+        email_address_identification_status: (
+            Iterable[models.EmailAddressIdentificationStatus] | None
+        ) = None,
+        phone_number: Iterable[str] | None = None,
+        phone_number_identification_status: (
+            Iterable[models.PhoneNumberIdentificationStatus] | None
+        ) = None,
+        web3_wallet: Iterable[str] | None = None,
         username: OptionalNullable[str] = UNSET,
         password: OptionalNullable[str] = UNSET,
         password_digest: OptionalNullable[str] = UNSET,
@@ -1540,17 +1543,20 @@ class MockUsersClient:
         skip_password_checks: OptionalNullable[bool] = UNSET,
         skip_password_requirement: OptionalNullable[bool] = UNSET,
         totp_secret: OptionalNullable[str] = UNSET,
-        backup_codes: List[str] | None = None,
-        public_metadata: Dict[str, Any] | None = None,
-        private_metadata: Dict[str, Any] | None = None,
-        unsafe_metadata: Dict[str, Any] | None = None,
+        backup_codes: Iterable[str] | None = None,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        unsafe_metadata: Mapping[str, Any] | None = None,
         delete_self_enabled: OptionalNullable[bool] = UNSET,
         legal_accepted_at: OptionalNullable[str] = UNSET,
         skip_legal_checks: OptionalNullable[bool] = UNSET,
+        skip_user_requirement: OptionalNullable[bool] = UNSET,
         create_organization_enabled: OptionalNullable[bool] = UNSET,
         create_organizations_limit: OptionalNullable[int] = UNSET,
         created_at: OptionalNullable[str] = UNSET,
         bypass_client_trust: OptionalNullable[bool] = UNSET,
+        banned: OptionalNullable[bool] = UNSET,
+        locked: OptionalNullable[bool] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1564,7 +1570,9 @@ class MockUsersClient:
             last_name=last_name,
             locale=locale,
             email_address=email_address,
+            email_address_identification_status=email_address_identification_status,
             phone_number=phone_number,
+            phone_number_identification_status=phone_number_identification_status,
             web3_wallet=web3_wallet,
             username=username,
             password=password,
@@ -1580,10 +1588,13 @@ class MockUsersClient:
             delete_self_enabled=delete_self_enabled,
             legal_accepted_at=legal_accepted_at,
             skip_legal_checks=skip_legal_checks,
+            skip_user_requirement=skip_user_requirement,
             create_organization_enabled=create_organization_enabled,
             create_organizations_limit=create_organizations_limit,
             created_at=created_at,
             bypass_client_trust=bypass_client_trust,
+            banned=banned,
+            locked=locked,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
@@ -1649,10 +1660,7 @@ class MockUsersClient:
         skip_password_checks: OptionalNullable[bool] = UNSET,
         sign_out_of_other_sessions: OptionalNullable[bool] = UNSET,
         totp_secret: OptionalNullable[str] = UNSET,
-        backup_codes: List[str] | None = None,
-        public_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        private_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
-        unsafe_metadata: OptionalNullable[Dict[str, Any]] = UNSET,
+        backup_codes: Iterable[str] | None = None,
         delete_self_enabled: OptionalNullable[bool] = UNSET,
         create_organization_enabled: OptionalNullable[bool] = UNSET,
         legal_accepted_at: OptionalNullable[str] = UNSET,
@@ -1686,9 +1694,6 @@ class MockUsersClient:
             sign_out_of_other_sessions=sign_out_of_other_sessions,
             totp_secret=totp_secret,
             backup_codes=backup_codes,
-            public_metadata=public_metadata,
-            private_metadata=private_metadata,
-            unsafe_metadata=unsafe_metadata,
             delete_self_enabled=delete_self_enabled,
             create_organization_enabled=create_organization_enabled,
             legal_accepted_at=legal_accepted_at,
@@ -1724,24 +1729,8 @@ class MockUsersClient:
     async def count_async(
         self,
         *,
-        email_address: List[str] | None = None,
-        phone_number: List[str] | None = None,
-        external_id: List[str] | None = None,
-        username: List[str] | None = None,
-        web3_wallet: List[str] | None = None,
-        user_id: List[str] | None = None,
-        organization_id: List[str] | None = None,
-        query: str | None = None,
-        email_address_query: str | None = None,
-        phone_number_query: str | None = None,
-        username_query: str | None = None,
-        name_query: str | None = None,
-        banned: bool | None = None,
-        last_active_at_before: int | None = None,
-        last_active_at_after: int | None = None,
-        last_active_at_since: int | None = None,
-        created_at_before: int | None = None,
-        created_at_after: int | None = None,
+        request: models.GetUsersCountRequest
+        | models.GetUsersCountRequestTypedDict = DEFAULT_GET_USERS_COUNT_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1750,24 +1739,221 @@ class MockUsersClient:
         """Async version of count."""
 
         return self.count(
-            email_address=email_address,
-            phone_number=phone_number,
-            external_id=external_id,
-            username=username,
-            web3_wallet=web3_wallet,
+            request=request,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    def adjust_billing_credit_balance(
+        self,
+        *,
+        user_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Adjust a user's billing credit balance."""
+
+        _ = action, idempotency_key, note, retries, server_url, timeout_ms, http_headers
+        self._get_user_or_error(user_id)
+
+        return build_commerce_credit_ledger_response(
+            payer_id=user_id,
+            amount=amount,
+            currency=currency or DEFAULT_CURRENCY,
+        )
+
+    def get_billing_credit_balance(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Return a placeholder billing credit balance for a user."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_user_or_error(user_id)
+
+        return build_commerce_credit_balance_response()
+
+    def replace_metadata(
+        self,
+        *,
+        user_id: str,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        unsafe_metadata: Mapping[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Replace metadata on a user."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_user_or_error(user_id)
+        update_data: dict[str, Any] = {}
+
+        if public_metadata is not None:
+            update_data["public_metadata"] = dict(public_metadata)
+
+        if private_metadata is not None:
+            update_data["private_metadata"] = dict(private_metadata)
+
+        if unsafe_metadata is not None:
+            update_data["unsafe_metadata"] = dict(unsafe_metadata)
+
+        return self._update_user(user_id, **update_data)
+
+    def set_password_compromised(
+        self,
+        *,
+        user_id: str,
+        revoke_all_sessions: OptionalNullable[bool] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Mark a user's password as compromised."""
+
+        _ = revoke_all_sessions, retries, server_url, timeout_ms, http_headers
+
+        return self._get_user_or_error(user_id)
+
+    def unset_password_compromised(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Clear a user's compromised-password flag."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+
+        return self._get_user_or_error(user_id)
+
+    async def adjust_billing_credit_balance_async(
+        self,
+        *,
+        user_id: str,
+        amount: int,
+        action: models.Action,
+        idempotency_key: str,
+        currency: str | None = None,
+        note: str | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditLedgerResponse:
+        """Async version of adjust_billing_credit_balance."""
+
+        return self.adjust_billing_credit_balance(
             user_id=user_id,
-            organization_id=organization_id,
-            query=query,
-            email_address_query=email_address_query,
-            phone_number_query=phone_number_query,
-            username_query=username_query,
-            name_query=name_query,
-            banned=banned,
-            last_active_at_before=last_active_at_before,
-            last_active_at_after=last_active_at_after,
-            last_active_at_since=last_active_at_since,
-            created_at_before=created_at_before,
-            created_at_after=created_at_after,
+            amount=amount,
+            action=action,
+            idempotency_key=idempotency_key,
+            currency=currency,
+            note=note,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def get_billing_credit_balance_async(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.CommerceCreditBalanceResponse:
+        """Async version of get_billing_credit_balance."""
+
+        return self.get_billing_credit_balance(
+            user_id=user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def replace_metadata_async(
+        self,
+        *,
+        user_id: str,
+        public_metadata: Mapping[str, Any] | None = None,
+        private_metadata: Mapping[str, Any] | None = None,
+        unsafe_metadata: Mapping[str, Any] | None = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Async version of replace_metadata."""
+
+        return self.replace_metadata(
+            user_id=user_id,
+            public_metadata=public_metadata,
+            private_metadata=private_metadata,
+            unsafe_metadata=unsafe_metadata,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def set_password_compromised_async(
+        self,
+        *,
+        user_id: str,
+        revoke_all_sessions: OptionalNullable[bool] = UNSET,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Async version of set_password_compromised."""
+
+        return self.set_password_compromised(
+            user_id=user_id,
+            revoke_all_sessions=revoke_all_sessions,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def unset_password_compromised_async(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Async version of unset_password_compromised."""
+
+        return self.unset_password_compromised(
+            user_id=user_id,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
