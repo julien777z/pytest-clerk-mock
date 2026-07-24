@@ -25,7 +25,7 @@ packages = [{include = "pytest_clerk_mock", from = "src"}]
 pytest = "^9.0.0"
 pytest-asyncio = "^1.4.0"
 pytest-cov = "^7.0.0"
-ruff = "^0.15.20"
+ruff = "^0.16.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
