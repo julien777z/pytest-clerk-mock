@@ -1,7 +1,6 @@
 import pytest
 
 from pytest_clerk_mock.client import MockClerkClient
-
 from tests.contract_parity.utils import (
     EXPECTED_CLIENT_METHODS,
     EXPECTED_CLIENT_PROPERTIES,
