@@ -7,6 +7,7 @@ alwaysApply: true
 
 ## Syntax and Typing
 
+- For single-consumer, non-library repositories, require Python 3.12 or newer and prefer the latest stable Python release when the repository's runtime and dependencies are compatible. For public libraries, prefer the widest feasible supported range with a minimum no earlier than Python 3.11.
 - Use modern type hints: `str | None` instead of `Optional[str]`.
 - Use built-in generics: `list[T]`, `dict[K, V]` instead of `List[T]`, `Dict[K, V]`.
 - Use `Self` from `typing` for class method return types.
@@ -18,7 +19,7 @@ alwaysApply: true
 - Prefer real SDK and model types over `cast(...)`; reserve a narrowly scoped cast for information the type system genuinely cannot express.
 - Do not "fix" typing by expanding simple transformations into repetitive key-by-key copy blocks (for example, manually assigning each dict key only to satisfy pyright). Fix the source type hints (or add a precise cast/narrowing at the boundary) so the transformation can stay concise and readable.
 - For persistence/update payloads (for example, `upsert(...)`), define a dedicated `TypedDict` and construct it inline at the call site. Do not add free-floating `build_*`/`make_*` helper functions whose only role is constructing a payload from another shape; the same no-free-floating-builders rule that applies to `BaseModel` applies here.
-- When a `TypedDict` types a module-level constant or other shared blob (for example a CVA style config), build the value by **calling** the TypedDict constructor with keyword arguments (`MyTypedDict(field=value, ...)`) instead of assigning an annotated plain dict literal (`name: MyTypedDict = {...}`). Use the same for nested TypedDict rows inside lists (for example `CompoundVariantRule(match={...}, class_name="...")`). This keeps the type as the construction site, not only a static annotation on a dict literal. Requires Python 3.12+.
+- When a `TypedDict` types a module-level constant or other shared blob (for example a CVA style config), build the value by **calling** the TypedDict constructor with keyword arguments (`MyTypedDict(field=value, ...)`) instead of assigning an annotated plain dict literal (`name: MyTypedDict = {...}`). Use the same for nested TypedDict rows inside lists (for example `CompoundVariantRule(match={...}, class_name="...")`). This keeps the type as the construction site, not only a static annotation on a dict literal.
 
 - Group parameters that always travel together and describe one concept into a single typed object, then pass that object rather than threading its fields through every signature and call site.
 
@@ -79,14 +80,19 @@ class Report(BaseModel):
 - Use `__all__` exports in module `__init__.py` files.
 - Never define variables or call functions in between import statements; all imports must be contiguous at the top of the file.
 - Never create shim modules that only re-export symbols from another package for backwards compatibility; update all consumers to import from the canonical source instead.
-- Put generic reusable functions in the package's `utils.py`, even when they currently have one caller; keep domain-specific behavior in its owning module, and extract a focused module or package only when a cohesive domain or external boundary warrants it.
+- Place generic, stateless, cross-cutting helpers in a `utils.py` module or `utils/` package.
+- Use a `utils.py` module for a small cohesive set of utilities; use a `utils/` package when separate focused utility modules are warranted.
+- Keep domain and orchestration behavior in their owning modules. Do not use utilities as a dumping ground.
 - Narrow exception: `__main__.py` entrypoints may use same-package relative imports for bootstrap (for example `from .runtime import main`), and `__init__.py` may use explicit relative imports when assembling the package’s public surface.
 
 ### Entrypoints
 
-- Keep `__main__.py` and script entrypoints thin.
-- Entrypoints only bootstrap and call a `main()` function from a dedicated runtime or service module.
-- Keep orchestration loops, transaction flow, and business logic in regular modules rather than entrypoint files.
+- Keep command-line parsing and execution together in `__main__.py`; do not create a separate `cli.py`
+  or a trivial `main()` wrapper solely to delegate from the module guard.
+- Invoke package CLIs with `python -m <package>` when no independently reusable console entrypoint is
+  required.
+- Do not layer `run()`, `main()`, and an `if __name__ == "__main__":` guard for the same entrypoint.
+- Model reusable command outcomes with a descriptive enum. Convert that outcome to an integer exit code only at the CLI boundary; never carry or return bare status integers through application code.
 
 ```python
 # Bad: shim module that only re-exports symbols
@@ -143,6 +149,7 @@ ACTION_CONFIG = ActionConfig()
 
 - Define constants at the top of the file, after imports.
 - Place module-level constants and enums (including type aliases like `AllowedApiClient`) directly after imports.
+- When assembling a structured string from variable parts, define one named template and use `str.format(...)` rather than composing separate prefix and suffix constants. Use native template strings only when they are supported across the project's full Python version range.
 - Use `Final[T]` from `typing` and UPPER_SNAKE_CASE names for constants.
 - Reserve constants for values that are genuinely invariant, such as compiled regexes, stable paths, or implementation sentinels. Values likely to change between releases or deployments belong in the typed settings class even when they have a default.
 - Compile regular expressions once at module scope and call methods on the compiled pattern instead of passing pattern strings repeatedly to `re.match`, `re.search`, `re.fullmatch`, or `re.sub`.
@@ -162,6 +169,7 @@ Avoid trivial wrapper functions that add no value. A function that just returns 
 - Return `bool` for binary domain outcomes; never return integer `0` or `1` as a boolean substitute. Translate booleans into process exit codes only at the CLI boundary.
 - Do not rebind function arguments to a second local name when the value is unchanged (for example, `profile = obj`); name the parameter correctly at the signature instead.
 - Do not add passthrough function or method parameters when every call site provides the value from one shared source (for example, forwarding `timeout_seconds` from `APPLICATION_CONFIG` in every call); read from that source directly where the value is used.
+- Give domain-specific parsers and converters domain-qualified names so imports from multiple domains cannot silently shadow one another. Keep unqualified names only for genuinely domain-independent transformations.
 
 - Prefer normal attribute assignment over `object.__setattr__(...)` when mutating Pydantic models in validators or helper methods.
 - Only use `object.__setattr__(...)` when normal assignment is genuinely unavailable (for example frozen models or descriptor bypass requirements), and keep that escape hatch explicit and justified.
@@ -182,6 +190,18 @@ def get_auth_secret(config: Settings | None = None) -> str:
 ```
 
 ## Architecture and Boundaries
+
+### Client Dependency Injection
+
+- Pass runtime clients and other stateful collaborators explicitly through constructors or function parameters. Do not hide them behind module globals, service-locator getters, or default parameter values.
+- Centralize dependency-container wiring at the application boundary. Request-scoped frameworks may inject clients into routes, while worker, RPC, and tool entrypoints receive their long-lived collaborators from startup wiring.
+- Keep one patchable client seam at the owning boundary rather than requiring tests to patch a separately imported client in every consumer module.
+
+### Model Placement
+
+- Define Pydantic `BaseModel` classes and other application data models under the package's `models/` directory.
+- Split models into intuitively named files by concept, such as `models/configuration.py` or `models/submission.py`.
+- Do not place models beside operational code or collect unrelated models in a catch-all `models.py` module.
 
 - Files under a `models/` package contain only declarative models, enums, and behavior intrinsic to validating or representing those models. Do not put runtime registries, mappings, instantiated collaborators, filesystem layouts, I/O, or orchestration in model files.
 - Put runtime mappings and operational behavior in the module that owns their use. A typed `config.py` built with `pydantic-settings` is the explicit exception: it may define settings models and instantiate the shared settings object.
@@ -418,6 +438,10 @@ except Exception as exc:
 - Banned terms and what to use instead:
   - **"best effort"** — state the real contract. A function that swallows failures and reports the outcome should say so: name it `try_<verb>` (for example `try_send_email`) and document it as "returning whether it succeeded", not "best-effort".
   - **"seed" / "seeds" / "seeding"** (for test data or sample records) — name the helper for what it builds: a `<noun>_*_factory` fixture, `create_*`, or "sample data". Do not call setup data a "seed".
+  - **"holder"** (for a model or object that carries a field) — name it for the thing it models, such as `ApiCredential`, `StateRecord`, or `AliasSet`.
+  - **"stub"** (in application-code identifiers) — use "client". Keep a generated `*Stub` class name only when referring to that external type.
+  - **"lease" / "leased"** (for work handed to a worker) — use `claim`, `claimed_job`, or `ClaimedJob`. Reserve "lock" for lock ownership and expiry.
+  - **"*orm_factory"** (in test fixtures and helpers) — name the domain action directly, such as `create_payment` or `create_invoice`; do not encode persistence implementation in the name.
 - If you reach for a placeholder-ish term a future reader could not decode from the name alone, pick a more intuitive name instead of adding it to this list.
 
 - Add a blank line after each docstring.
