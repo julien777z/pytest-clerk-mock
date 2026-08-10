@@ -149,11 +149,7 @@ class MockUsersClient:
     ) -> models.OrganizationMemberships:
         """Build an instance-wide organization memberships response."""
 
-        memberships = [
-            membership
-            for response in self._memberships.values()
-            for membership in response.data
-        ]
+        memberships = [membership for response in self._memberships.values() for membership in response.data]
         resolved_offset = offset or 0
         resolved_limit = limit or 10
 
@@ -170,13 +166,9 @@ class MockUsersClient:
         last_name: OptionalNullable[str] = UNSET,
         locale: OptionalNullable[str] = UNSET,
         email_address: Iterable[str] | None = None,
-        email_address_identification_status: (
-            Iterable[models.EmailAddressIdentificationStatus] | None
-        ) = None,
+        email_address_identification_status: Iterable[models.EmailAddressIdentificationStatus] | None = None,
         phone_number: Iterable[str] | None = None,
-        phone_number_identification_status: (
-            Iterable[models.PhoneNumberIdentificationStatus] | None
-        ) = None,
+        phone_number_identification_status: Iterable[models.PhoneNumberIdentificationStatus] | None = None,
         web3_wallet: Iterable[str] | None = None,
         username: OptionalNullable[str] = UNSET,
         password: OptionalNullable[str] = UNSET,
@@ -306,8 +298,9 @@ class MockUsersClient:
     def list(
         self,
         *,
-        request: models.GetUserListRequest
-        | models.GetUserListRequestTypedDict = DEFAULT_GET_USER_LIST_REQUEST,
+        request: (
+            models.GetUserListRequest | models.GetUserListRequestTypedDict
+        ) = DEFAULT_GET_USER_LIST_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -576,8 +569,9 @@ class MockUsersClient:
     def count(
         self,
         *,
-        request: models.GetUsersCountRequest
-        | models.GetUsersCountRequestTypedDict = DEFAULT_GET_USERS_COUNT_REQUEST,
+        request: (
+            models.GetUsersCountRequest | models.GetUsersCountRequestTypedDict
+        ) = DEFAULT_GET_USERS_COUNT_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1531,13 +1525,9 @@ class MockUsersClient:
         last_name: OptionalNullable[str] = UNSET,
         locale: OptionalNullable[str] = UNSET,
         email_address: Iterable[str] | None = None,
-        email_address_identification_status: (
-            Iterable[models.EmailAddressIdentificationStatus] | None
-        ) = None,
+        email_address_identification_status: Iterable[models.EmailAddressIdentificationStatus] | None = None,
         phone_number: Iterable[str] | None = None,
-        phone_number_identification_status: (
-            Iterable[models.PhoneNumberIdentificationStatus] | None
-        ) = None,
+        phone_number_identification_status: Iterable[models.PhoneNumberIdentificationStatus] | None = None,
         web3_wallet: Iterable[str] | None = None,
         username: OptionalNullable[str] = UNSET,
         password: OptionalNullable[str] = UNSET,
@@ -1626,8 +1616,9 @@ class MockUsersClient:
     async def list_async(
         self,
         *,
-        request: models.GetUserListRequest
-        | models.GetUserListRequestTypedDict = DEFAULT_GET_USER_LIST_REQUEST,
+        request: (
+            models.GetUserListRequest | models.GetUserListRequestTypedDict
+        ) = DEFAULT_GET_USER_LIST_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,
@@ -1732,8 +1723,9 @@ class MockUsersClient:
     async def count_async(
         self,
         *,
-        request: models.GetUsersCountRequest
-        | models.GetUsersCountRequestTypedDict = DEFAULT_GET_USERS_COUNT_REQUEST,
+        request: (
+            models.GetUsersCountRequest | models.GetUsersCountRequestTypedDict
+        ) = DEFAULT_GET_USERS_COUNT_REQUEST,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: str | None = None,
         timeout_ms: int | None = None,

@@ -14,9 +14,7 @@ from pytest_clerk_mock.services.users import MockUsersClient
 
 SELF_PARAMETER_NAME: Final[str] = "self"
 RETURN_KEY: Final[str] = "return"
-SERVICE_CONTRACTS: Final[
-    tuple[tuple[type[object], type[object], frozenset[str]], ...]
-] = (
+SERVICE_CONTRACTS: Final[tuple[tuple[type[object], type[object], frozenset[str]], ...]] = (
     (Users, MockUsersClient, frozenset({"reset", "set_organization_memberships"})),
     (OrganizationsSDK, MockOrganizationsClient, frozenset({"add", "reset"})),
     (OrganizationMembershipsSDK, MockOrganizationMembershipsClient, frozenset({"get", "reset"})),
@@ -37,9 +35,7 @@ EXPECTED_CLIENT_METHODS: Final[frozenset[str]] = frozenset(
         "reset",
     }
 )
-EXPORTED_MODEL_CONTRACTS: Final[
-    tuple[tuple[type[object], type[object], frozenset[str]], ...]
-] = (
+EXPORTED_MODEL_CONTRACTS: Final[tuple[tuple[type[object], type[object], frozenset[str]], ...]] = (
     (models.User, MockUser, frozenset()),
     (models.Organization, MockOrganization, frozenset()),
     (models.OrganizationMembership, MockOrganizationMembership, frozenset({"organization_id", "user_id"})),

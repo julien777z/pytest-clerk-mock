@@ -556,9 +556,7 @@ class TestAsyncAPI:
         await mock_clerk.users.create_async(email_address=["user1@example.com"], external_id="ext_1")
         await mock_clerk.users.create_async(email_address=["user2@example.com"], external_id="ext_2")
 
-        count = await mock_clerk.users.count_async(
-            request=GetUsersCountRequest(external_id=["ext_1"])
-        )
+        count = await mock_clerk.users.count_async(request=GetUsersCountRequest(external_id=["ext_1"]))
 
         assert count.total_count == 1
 
