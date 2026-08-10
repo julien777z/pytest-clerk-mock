@@ -42,7 +42,7 @@ target-version = "py311"
 
 [tool.black]
 line-length = 110
-target-version = ["py311"]
+target-version = ["py311", "py312", "py313", "py314"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
