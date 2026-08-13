@@ -27,6 +27,7 @@ ORGANIZATION_NOT_FOUND_RESPONSE_TEXT: Final[str] = "Organization not found."
 DEFAULT_MAX_ALLOWED_MEMBERSHIPS: Final[int] = 0
 DEFAULT_CURRENCY: Final[str] = "usd"
 
+
 def _resolve_metadata(
     metadata: OptionalNullable[MetadataDict] | None,
 ) -> dict[str, object] | None:
@@ -167,18 +168,14 @@ class MockOrganizationsClient:
         resolved_created_by = resolve_optional_nullable(
             get_request_value(request_payload, "created_by", UNSET)
         )
-        resolved_slug = (
-            resolve_optional_nullable(get_request_value(request_payload, "slug", UNSET)) or ""
-        )
+        resolved_slug = resolve_optional_nullable(get_request_value(request_payload, "slug", UNSET)) or ""
         resolved_public_metadata = _resolve_metadata(
             get_request_value(request_payload, "public_metadata", UNSET)
         )
         resolved_private_metadata = _resolve_metadata(
             get_request_value(request_payload, "private_metadata", UNSET)
         )
-        resolved_created_at = _resolve_created_at(
-            get_request_value(request_payload, "created_at", UNSET)
-        )
+        resolved_created_at = _resolve_created_at(get_request_value(request_payload, "created_at", UNSET))
         resolved_max_allowed_memberships = resolve_optional_nullable(
             get_request_value(request_payload, "max_allowed_memberships", UNSET)
         )
