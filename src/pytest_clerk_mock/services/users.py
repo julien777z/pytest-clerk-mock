@@ -1041,6 +1041,65 @@ class MockUsersClient:
             code_type=CodeType.TOTP,
         )
 
+    def remove_password(
+        self,
+        *,
+        user_id: str,
+        sign_out_of_other_sessions: bool | None = False,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Remove a user's password."""
+
+        _ = sign_out_of_other_sessions, retries, server_url, timeout_ms, http_headers
+
+        return self._update_user(user_id)
+
+    def list_trusted_devices(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.TrustedDeviceList:
+        """List a user's trusted devices."""
+
+        _ = user_id, retries, server_url, timeout_ms, http_headers
+
+        return models.TrustedDeviceList(data=[], total_count=0)
+
+    def revoke_trusted_device(
+        self,
+        *,
+        user_id: str,
+        trusted_device_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.TrustedDevice:
+        """Revoke one of a user's trusted devices."""
+
+        _ = retries, server_url, timeout_ms, http_headers
+        self._get_user_or_error(user_id)
+
+        return models.TrustedDevice.model_validate(
+            {
+                "object": "trusted_device",
+                "id": trusted_device_id,
+                "platform": "ios",
+                "app_identifier": f"mock.app.{user_id}",
+                "algorithm": "ES256",
+                "status": "revoked",
+                "created_at": 0,
+                "updated_at": 0,
+            }
+        )
+
     async def get_organization_memberships_async(
         self,
         *,
@@ -1949,6 +2008,67 @@ class MockUsersClient:
 
         return self.unset_password_compromised(
             user_id=user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def remove_password_async(
+        self,
+        *,
+        user_id: str,
+        sign_out_of_other_sessions: bool | None = False,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.User:
+        """Async version of remove_password."""
+
+        return self.remove_password(
+            user_id=user_id,
+            sign_out_of_other_sessions=sign_out_of_other_sessions,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def list_trusted_devices_async(
+        self,
+        *,
+        user_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.TrustedDeviceList:
+        """Async version of list_trusted_devices."""
+
+        return self.list_trusted_devices(
+            user_id=user_id,
+            retries=retries,
+            server_url=server_url,
+            timeout_ms=timeout_ms,
+            http_headers=http_headers,
+        )
+
+    async def revoke_trusted_device_async(
+        self,
+        *,
+        user_id: str,
+        trusted_device_id: str,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: str | None = None,
+        timeout_ms: int | None = None,
+        http_headers: Mapping[str, str] | None = None,
+    ) -> models.TrustedDevice:
+        """Async version of revoke_trusted_device."""
+
+        return self.revoke_trusted_device(
+            user_id=user_id,
+            trusted_device_id=trusted_device_id,
             retries=retries,
             server_url=server_url,
             timeout_ms=timeout_ms,
