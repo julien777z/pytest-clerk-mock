@@ -7,11 +7,14 @@ from pytest_clerk_mock.models.organization import (
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
 )
+from pytest_clerk_mock.services.actor_tokens import MockActorTokensClient
 from pytest_clerk_mock.services.auth import MockAuthState
+from pytest_clerk_mock.services.email_addresses import MockEmailAddressesClient
 from pytest_clerk_mock.services.organization_memberships import (
     MockOrganizationMembershipsClient,
 )
 from pytest_clerk_mock.services.organizations import MockOrganizationsClient
+from pytest_clerk_mock.services.sessions import MockSessionsClient
 from pytest_clerk_mock.services.users import MockUsersClient
 from pytest_clerk_mock.utils import generate_clerk_id
 
@@ -28,6 +31,9 @@ class MockClerkClient:
         self._users = MockUsersClient()
         self._organizations = MockOrganizationsClient()
         self._organization_memberships = MockOrganizationMembershipsClient()
+        self._email_addresses = MockEmailAddressesClient(self._users)
+        self._actor_tokens = MockActorTokensClient(self._users)
+        self._sessions = MockSessionsClient(self._users)
         self._auth_state = MockAuthState()
         self._memberships: dict[str, list[MockOrganizationMembership]] = {}
 
@@ -52,10 +58,30 @@ class MockClerkClient:
 
         return self._organization_memberships
 
+    @property
+    def email_addresses(self) -> MockEmailAddressesClient:
+        """Access the EmailAddresses API."""
+
+        return self._email_addresses
+
+    @property
+    def actor_tokens(self) -> MockActorTokensClient:
+        """Access the ActorTokens API."""
+
+        return self._actor_tokens
+
+    @property
+    def sessions(self) -> MockSessionsClient:
+        """Access the Sessions API."""
+
+        return self._sessions
+
     def reset(self) -> None:
         """Reset all mock services."""
 
         self._users.reset()
+        self._actor_tokens.reset()
+        self._sessions.reset()
         self._organizations.reset()
         self._organization_memberships.reset()
         self._auth_state.reset()

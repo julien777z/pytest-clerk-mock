@@ -2,14 +2,20 @@ import inspect
 from typing import Any, Final, get_args, get_origin, get_type_hints
 
 from clerk_backend_api import models
+from clerk_backend_api.actortokens import ActorTokens
+from clerk_backend_api.emailaddresses import EmailAddresses
 from clerk_backend_api.organizationmemberships_sdk import OrganizationMembershipsSDK
 from clerk_backend_api.organizations_sdk import OrganizationsSDK
+from clerk_backend_api.sessions import Sessions
 from clerk_backend_api.users import Users
 
 from pytest_clerk_mock.models.organization import MockOrganization, MockOrganizationMembership
-from pytest_clerk_mock.models.user import MockUser
+from pytest_clerk_mock.models.user import MockEmailAddress, MockUser
+from pytest_clerk_mock.services.actor_tokens import MockActorTokensClient
+from pytest_clerk_mock.services.email_addresses import MockEmailAddressesClient
 from pytest_clerk_mock.services.organization_memberships import MockOrganizationMembershipsClient
 from pytest_clerk_mock.services.organizations import MockOrganizationsClient
+from pytest_clerk_mock.services.sessions import MockSessionsClient
 from pytest_clerk_mock.services.users import MockUsersClient
 
 SELF_PARAMETER_NAME: Final[str] = "self"
@@ -18,11 +24,17 @@ SERVICE_CONTRACTS: Final[tuple[tuple[type[object], type[object], frozenset[str]]
     (Users, MockUsersClient, frozenset({"reset", "set_organization_memberships"})),
     (OrganizationsSDK, MockOrganizationsClient, frozenset({"add", "reset"})),
     (OrganizationMembershipsSDK, MockOrganizationMembershipsClient, frozenset({"get", "reset"})),
+    (EmailAddresses, MockEmailAddressesClient, frozenset()),
+    (ActorTokens, MockActorTokensClient, frozenset({"reset"})),
+    (Sessions, MockSessionsClient, frozenset({"reset"})),
 )
 EXPECTED_CLIENT_PROPERTIES: Final[dict[str, type[object]]] = {
     "users": MockUsersClient,
     "organizations": MockOrganizationsClient,
     "organization_memberships": MockOrganizationMembershipsClient,
+    "email_addresses": MockEmailAddressesClient,
+    "actor_tokens": MockActorTokensClient,
+    "sessions": MockSessionsClient,
 }
 EXPECTED_CLIENT_METHODS: Final[frozenset[str]] = frozenset(
     {
@@ -37,6 +49,7 @@ EXPECTED_CLIENT_METHODS: Final[frozenset[str]] = frozenset(
 )
 EXPORTED_MODEL_CONTRACTS: Final[tuple[tuple[type[object], type[object], frozenset[str]], ...]] = (
     (models.User, MockUser, frozenset()),
+    (models.EmailAddress, MockEmailAddress, frozenset()),
     (models.Organization, MockOrganization, frozenset()),
     (models.OrganizationMembership, MockOrganizationMembership, frozenset({"organization_id", "user_id"})),
 )
