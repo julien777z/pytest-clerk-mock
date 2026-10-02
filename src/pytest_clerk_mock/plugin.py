@@ -1,7 +1,7 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, Final
 from unittest.mock import patch
 
 import pytest
@@ -28,52 +28,37 @@ def _mock_authenticate_request(request: Any, options: Any) -> Any:
     return _get_current_client().authenticate_request(request, options)
 
 
-class _MockUsersProxy:
-    """Proxy that delegates all calls to the current mock client's users."""
+SDK_SERVICE_CLASSES: Final[dict[str, str]] = {
+    "clerk_backend_api.users.Users": "users",
+    "clerk_backend_api.organizations_sdk.OrganizationsSDK": "organizations",
+    "clerk_backend_api.organizationmemberships_sdk.OrganizationMembershipsSDK": "organization_memberships",
+    "clerk_backend_api.emailaddresses.EmailAddresses": "email_addresses",
+    "clerk_backend_api.actortokens.ActorTokens": "actor_tokens",
+    "clerk_backend_api.sessions.Sessions": "sessions",
+}
+
+
+class ServiceProxy:
+    """Proxy that delegates every call to one service of the current mock client."""
+
+    def __init__(self, service: str) -> None:
+        self.service = service
 
     def __getattr__(self, name: str) -> Any:
-        return getattr(_get_current_client().users, name)
+        return getattr(getattr(_get_current_client(), self.service), name)
 
 
-_users_proxy = _MockUsersProxy()
+def mock_service_class(service: str) -> Callable[..., ServiceProxy]:
+    """Build a stand-in for an SDK service class that returns a proxy to the mock service."""
 
+    proxy = ServiceProxy(service)
 
-def _mock_users_class(*args: Any, **kwargs: Any) -> _MockUsersProxy:
-    """Mock Users class that returns the proxy."""
+    def _construct(*args: Any, **kwargs: Any) -> ServiceProxy:
+        """Return the proxy whatever the SDK passes its service class."""
 
-    return _users_proxy
+        return proxy
 
-
-class _MockOrganizationsProxy:
-    """Proxy that delegates all calls to the current mock client's organizations."""
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_get_current_client().organizations, name)
-
-
-_organizations_proxy = _MockOrganizationsProxy()
-
-
-def _mock_organizations_class(*args: Any, **kwargs: Any) -> _MockOrganizationsProxy:
-    """Mock Organizations class that returns the proxy."""
-
-    return _organizations_proxy
-
-
-class _MockOrganizationMembershipsProxy:
-    """Proxy that delegates all calls to the current mock client's organization_memberships."""
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_get_current_client().organization_memberships, name)
-
-
-_organization_memberships_proxy = _MockOrganizationMembershipsProxy()
-
-
-def _mock_organization_memberships_class(*args: Any, **kwargs: Any) -> _MockOrganizationMembershipsProxy:
-    """Mock OrganizationMemberships class that returns the proxy."""
-
-    return _organization_memberships_proxy
+    return _construct
 
 
 def _apply_sdk_patches(stack: ExitStack) -> None:
@@ -100,26 +85,8 @@ def _apply_sdk_patches(stack: ExitStack) -> None:
         )
     )
 
-    stack.enter_context(
-        patch(
-            "clerk_backend_api.users.Users",
-            _mock_users_class,
-        )
-    )
-
-    stack.enter_context(
-        patch(
-            "clerk_backend_api.organizations_sdk.OrganizationsSDK",
-            _mock_organizations_class,
-        )
-    )
-
-    stack.enter_context(
-        patch(
-            "clerk_backend_api.organizationmemberships_sdk.OrganizationMembershipsSDK",
-            _mock_organization_memberships_class,
-        )
-    )
+    for service_class, service in SDK_SERVICE_CLASSES.items():
+        stack.enter_context(patch(service_class, mock_service_class(service)))
 
 
 @pytest.fixture

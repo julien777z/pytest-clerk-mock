@@ -9,19 +9,24 @@ class MockEmailAddress(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    object: str = "email_address"
     id: str
     email_address: str
+    reserved: bool = False
     verification: dict | None = None
     linked_to: list[dict] = Field(default_factory=list)
+    matches_sso_connection: bool | None = None
+    created_at: int = Field(default_factory=lambda: int(datetime.now().timestamp() * 1000))
+    updated_at: int = Field(default_factory=lambda: int(datetime.now().timestamp() * 1000))
 
     @classmethod
-    def create(cls, email: str, email_id: str) -> Self:
-        """Create a verified email address."""
+    def create(cls, email: str, email_id: str, *, verified: bool = True) -> Self:
+        """Create an email address, verified unless told otherwise."""
 
         return cls(
             id=email_id,
             email_address=email,
-            verification={"status": "verified", "strategy": "email_code"},
+            verification={"status": "verified" if verified else "unverified", "strategy": "email_code"},
             linked_to=[],
         )
 

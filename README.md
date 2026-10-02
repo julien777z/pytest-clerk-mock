@@ -7,6 +7,9 @@ Supported SDK surfaces:
 - `users`
 - `organizations`
 - `organization_memberships`
+- `email_addresses` (stored on the users that hold them)
+- `actor_tokens`
+- `sessions`
 
 The plugin patches Clerk at the SDK level, so it works even if your app instantiates its Clerk client before the test runs.
 
@@ -114,6 +117,19 @@ mock_clerk.users.set_organization_memberships(
 This package aims for strong parity for the supported Clerk SDK surfaces above. It does **not** try to mock every Clerk API domain.
 
 The contract tests and CI job are the source of truth for supported method and model parity.
+
+## Sessions And Impersonation
+
+Sessions issue opaque tokens that name the session, and actor tokens carry a sign-in URL for impersonation flows:
+
+```python
+user = mock_clerk.users.create(email_address=["person@example.test"])
+session = mock_clerk.sessions.create(request={"user_id": user.id})
+token = mock_clerk.sessions.create_token(session_id=session.id)
+
+ticket = mock_clerk.actor_tokens.create(request={"user_id": user.id, "actor": {"sub": "user_admin"}})
+mock_clerk.actor_tokens.revoke(actor_token_id=ticket.id)
+```
 
 ## Test Helpers
 
