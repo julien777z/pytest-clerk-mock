@@ -611,7 +611,7 @@ class TestUserBillingCredit:
 
         assert ledger.object == "commerce_credit_ledger"
         assert ledger.payer_id == user.id
-        assert ledger.amount == 100
+        assert ledger.amount.amount == 100
 
     def test_get_billing_credit_balance_uses_balance_discriminator(
         self,
