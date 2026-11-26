@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Callable, Final, Iterable, List, Mapping, Tuple
 
@@ -32,6 +34,12 @@ RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
+INVALID_FORMAT_ERROR_CODE: Final[str] = "form_param_format_invalid"
+LEGAL_ACCEPTED_AT_INVALID_RESPONSE_TEXT: Final[str] = "legal_accepted_at must be an RFC3339 timestamp."
+RFC3339_TIMESTAMP_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})"
+)
+UNIX_EPOCH: Final[datetime] = datetime(1970, 1, 1, tzinfo=UTC)
 DEFAULT_CURRENCY: Final[str] = "usd"
 DEFAULT_GET_USER_LIST_REQUEST: Final[models.GetUserListRequest] = models.GetUserListRequest()
 DEFAULT_GET_USERS_COUNT_REQUEST: Final[models.GetUsersCountRequest] = models.GetUsersCountRequest()
@@ -57,6 +65,36 @@ def _create_user_not_found_error(user_id: str) -> ClerkErrors:
         code=RESOURCE_NOT_FOUND_ERROR_CODE,
         message=f"User not found: {user_id}",
     )
+
+
+def _create_invalid_legal_accepted_at_error(value: str) -> ClerkErrors:
+    """Create a ClerkErrors exception for a legal_accepted_at value that is not RFC3339."""
+
+    return create_clerk_error(
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        response_text=LEGAL_ACCEPTED_AT_INVALID_RESPONSE_TEXT,
+        code=INVALID_FORMAT_ERROR_CODE,
+        message=f"legal_accepted_at is not a valid RFC3339 timestamp: {value}",
+    )
+
+
+def _parse_legal_accepted_at(value: OptionalNullable[str]) -> int | None:
+    """Convert an RFC3339 legal acceptance timestamp into the epoch milliseconds Clerk returns."""
+
+    timestamp = resolve_optional_nullable(value)
+
+    if timestamp is None:
+        return None
+
+    if RFC3339_TIMESTAMP_PATTERN.fullmatch(timestamp) is None:
+        raise _create_invalid_legal_accepted_at_error(timestamp)
+
+    try:
+        accepted_at = datetime.fromisoformat(timestamp)
+    except ValueError as error:
+        raise _create_invalid_legal_accepted_at_error(timestamp) from error
+
+    return (accepted_at - UNIX_EPOCH) // timedelta(milliseconds=1)
 
 
 def _build_oauth_access_token(*, user_id: str, provider: str) -> models.OAuthAccessToken:
@@ -208,7 +246,6 @@ class MockUsersClient:
             skip_password_requirement,
             totp_secret,
             backup_codes,
-            legal_accepted_at,
             skip_legal_checks,
             skip_user_requirement,
             created_at,
@@ -227,6 +264,7 @@ class MockUsersClient:
                 if email.lower() in self._emails:
                     raise _create_email_exists_error(email)
 
+        legal_accepted_at_ms = _parse_legal_accepted_at(legal_accepted_at)
         user_id = generate_clerk_id("user")
         email_objects: list[MockEmailAddress] = []
         primary_email_id: str | None = None
@@ -271,6 +309,7 @@ class MockUsersClient:
             delete_self_enabled=resolve_optional_nullable(delete_self_enabled) or True,
             create_organization_enabled=resolve_optional_nullable(create_organization_enabled) or True,
             create_organizations_limit=resolve_optional_nullable(create_organizations_limit),
+            legal_accepted_at=legal_accepted_at_ms,
             bypass_client_trust=resolve_optional_nullable(bypass_client_trust) or False,
             banned=resolve_optional_nullable(banned) or False,
             locked=resolve_optional_nullable(locked) or False,
@@ -514,7 +553,6 @@ class MockUsersClient:
             sign_out_of_other_sessions,
             totp_secret,
             backup_codes,
-            legal_accepted_at,
             skip_legal_checks,
             created_at,
             bypass_client_trust,
@@ -536,6 +574,7 @@ class MockUsersClient:
             "delete_self_enabled": resolve_optional_nullable(delete_self_enabled),
             "create_organization_enabled": resolve_optional_nullable(create_organization_enabled),
             "create_organizations_limit": resolve_optional_nullable(create_organizations_limit),
+            "legal_accepted_at": _parse_legal_accepted_at(legal_accepted_at),
             "bypass_client_trust": resolve_optional_nullable(bypass_client_trust),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}
