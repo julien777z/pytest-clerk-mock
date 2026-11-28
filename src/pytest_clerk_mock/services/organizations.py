@@ -19,7 +19,7 @@ from pytest_clerk_mock.utils import (
     generate_clerk_id,
     get_request_value,
     resolve_optional_nullable,
-    rfc3339_to_epoch_ms,
+    resolve_rfc3339_epoch_ms,
 )
 
 RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
@@ -38,16 +38,6 @@ def _resolve_metadata(
         return None
 
     return dict(resolved_metadata)
-
-
-def _resolve_created_at(created_at: OptionalNullable[str]) -> int | None:
-    """Convert Clerk created_at strings into epoch milliseconds."""
-
-    resolved_created_at = resolve_optional_nullable(created_at)
-    if resolved_created_at is None:
-        return None
-
-    return rfc3339_to_epoch_ms(resolved_created_at)
 
 
 def _build_organization_with_logo(
@@ -173,7 +163,10 @@ class MockOrganizationsClient:
         resolved_private_metadata = _resolve_metadata(
             get_request_value(request_payload, "private_metadata", UNSET)
         )
-        resolved_created_at = _resolve_created_at(get_request_value(request_payload, "created_at", UNSET))
+        resolved_created_at = resolve_rfc3339_epoch_ms(
+            get_request_value(request_payload, "created_at", UNSET),
+            field="created_at",
+        )
         resolved_max_allowed_memberships = resolve_optional_nullable(
             get_request_value(request_payload, "max_allowed_memberships", UNSET)
         )

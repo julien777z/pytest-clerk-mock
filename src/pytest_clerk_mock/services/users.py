@@ -25,7 +25,7 @@ from pytest_clerk_mock.utils import (
     generate_clerk_id,
     get_request_value,
     resolve_optional_nullable,
-    rfc3339_to_epoch_ms,
+    resolve_rfc3339_epoch_ms,
 )
 
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
@@ -33,8 +33,6 @@ RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
-INVALID_FORMAT_ERROR_CODE: Final[str] = "form_param_format_invalid"
-LEGAL_ACCEPTED_AT_INVALID_RESPONSE_TEXT: Final[str] = "legal_accepted_at must be an RFC3339 timestamp."
 DEFAULT_CURRENCY: Final[str] = "usd"
 DEFAULT_GET_USER_LIST_REQUEST: Final[models.GetUserListRequest] = models.GetUserListRequest()
 DEFAULT_GET_USERS_COUNT_REQUEST: Final[models.GetUsersCountRequest] = models.GetUsersCountRequest()
@@ -60,31 +58,6 @@ def _create_user_not_found_error(user_id: str) -> ClerkErrors:
         code=RESOURCE_NOT_FOUND_ERROR_CODE,
         message=f"User not found: {user_id}",
     )
-
-
-def _create_invalid_legal_accepted_at_error(value: str) -> ClerkErrors:
-    """Create a ClerkErrors exception for a legal_accepted_at value that is not RFC3339."""
-
-    return create_clerk_error(
-        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-        response_text=LEGAL_ACCEPTED_AT_INVALID_RESPONSE_TEXT,
-        code=INVALID_FORMAT_ERROR_CODE,
-        message=f"legal_accepted_at is not a valid RFC3339 timestamp: {value}",
-    )
-
-
-def _parse_legal_accepted_at(value: OptionalNullable[str]) -> int | None:
-    """Convert an RFC3339 legal acceptance timestamp into the epoch milliseconds Clerk returns."""
-
-    timestamp = resolve_optional_nullable(value)
-
-    if timestamp is None:
-        return None
-
-    try:
-        return rfc3339_to_epoch_ms(timestamp)
-    except ValueError as error:
-        raise _create_invalid_legal_accepted_at_error(timestamp) from error
 
 
 def _build_oauth_access_token(*, user_id: str, provider: str) -> models.OAuthAccessToken:
@@ -254,7 +227,7 @@ class MockUsersClient:
                 if email.lower() in self._emails:
                     raise _create_email_exists_error(email)
 
-        legal_accepted_at_ms = _parse_legal_accepted_at(legal_accepted_at)
+        legal_accepted_at_ms = resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at")
         user_id = generate_clerk_id("user")
         email_objects: list[MockEmailAddress] = []
         primary_email_id: str | None = None
@@ -564,7 +537,7 @@ class MockUsersClient:
             "delete_self_enabled": resolve_optional_nullable(delete_self_enabled),
             "create_organization_enabled": resolve_optional_nullable(create_organization_enabled),
             "create_organizations_limit": resolve_optional_nullable(create_organizations_limit),
-            "legal_accepted_at": _parse_legal_accepted_at(legal_accepted_at),
+            "legal_accepted_at": resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at"),
             "bypass_client_trust": resolve_optional_nullable(bypass_client_trust),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}

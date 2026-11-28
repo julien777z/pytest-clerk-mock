@@ -5,6 +5,7 @@ from pytest_clerk_mock import (
     MockClerkClient,
     MockOrganization,
 )
+from pytest_clerk_mock.utils import INVALID_FORMAT_ERROR_CODE
 
 RESOURCE_NOT_FOUND_CODE = "resource_not_found"
 CREATED_AT_MS = 1773273600000
@@ -87,6 +88,17 @@ class TestOrganizationCreate:
         stored = mock_clerk.organizations.get(organization_id=org.id)
 
         assert stored.created_at == CREATED_AT_MS
+
+    def test_rejects_date_only_created_at(self, mock_clerk: MockClerkClient) -> None:
+        """A created_at that is not an RFC3339 timestamp raises ClerkErrors and stores no organization."""
+
+        with pytest.raises(ClerkErrors) as exc_info:
+            mock_clerk.organizations.create(request={"name": "Created Org", "created_at": "2026-03-12"})
+
+        errors = exc_info.value.data.errors
+        assert len(errors) == 1
+        assert errors[0].code == INVALID_FORMAT_ERROR_CODE
+        assert mock_clerk.organizations.list().total_count == 0
 
     async def test_create_async_with_request(self, mock_clerk: MockClerkClient) -> None:
         """Test that create_async accepts the Clerk-style request payload used in app tests."""

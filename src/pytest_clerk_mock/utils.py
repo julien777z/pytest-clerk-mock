@@ -19,8 +19,9 @@ from pytest_clerk_mock.models.user import MockClerkUserResponse
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
 DEFAULT_ERROR_TEXT: Final[str] = "Mock error"
 DEFAULT_ERROR_CODE: Final[str] = "mock_error"
+INVALID_FORMAT_ERROR_CODE: Final[str] = "form_param_format_invalid"
 RFC3339_TIMESTAMP_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})"
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})"
 )
 
 UNIX_EPOCH: Final[datetime] = datetime(1970, 1, 1, tzinfo=UTC)
@@ -187,13 +188,34 @@ def resolve_optional_nullable(value: OptionalNullable[RequestValueT]) -> Request
     return value
 
 
-def rfc3339_to_epoch_ms(timestamp: str) -> int:
-    """Convert an RFC3339 timestamp into the epoch milliseconds Clerk returns, or raise ValueError."""
+def _create_invalid_timestamp_error(*, field: str, timestamp: str) -> ClerkErrors:
+    """Create the ClerkErrors exception Clerk returns for a timestamp parameter that is not RFC3339."""
+
+    return create_clerk_error(
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        response_text=f"{field} must be an RFC3339 timestamp.",
+        code=INVALID_FORMAT_ERROR_CODE,
+        message=f"{field} is not a valid RFC3339 timestamp: {timestamp}",
+    )
+
+
+def resolve_rfc3339_epoch_ms(value: OptionalNullable[str], *, field: str) -> int | None:
+    """Convert an RFC3339 timestamp parameter into the epoch milliseconds Clerk returns."""
+
+    timestamp = resolve_optional_nullable(value)
+
+    if timestamp is None:
+        return None
 
     if RFC3339_TIMESTAMP_PATTERN.fullmatch(timestamp) is None:
-        raise ValueError(f"Not an RFC3339 timestamp: {timestamp}")
+        raise _create_invalid_timestamp_error(field=field, timestamp=timestamp)
 
-    return (datetime.fromisoformat(timestamp) - UNIX_EPOCH) // timedelta(milliseconds=1)
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError as error:
+        raise _create_invalid_timestamp_error(field=field, timestamp=timestamp) from error
+
+    return (parsed - UNIX_EPOCH) // timedelta(milliseconds=1)
 
 
 def get_request_value(request: object, key: str, default: Any = None) -> Any:

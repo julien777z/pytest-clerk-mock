@@ -1,9 +1,9 @@
 import pytest
 from clerk_backend_api.models import Action, ClerkErrors, GetUserListRequest, GetUsersCountRequest
-from clerk_backend_api.types import UNSET
+from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.client import MockClerkClient
-from pytest_clerk_mock.services.users import INVALID_FORMAT_ERROR_CODE
+from pytest_clerk_mock.utils import INVALID_FORMAT_ERROR_CODE
 
 RESOURCE_NOT_FOUND_CODE = "resource_not_found"
 INVALID_LEGAL_ACCEPTED_AT_VALUES = (
@@ -195,7 +195,7 @@ class TestUserCreate:
     def test_stores_legal_accepted_at_as_epoch_ms(
         self,
         mock_clerk: MockClerkClient,
-        legal_accepted_at: str | None,
+        legal_accepted_at: OptionalNullable[str],
         expected: int | None,
     ) -> None:
         """RFC3339 legal_accepted_at is stored as epoch milliseconds, like the Clerk User model."""
@@ -412,7 +412,7 @@ class TestUserUpdate:
         self,
         mock_clerk: MockClerkClient,
         initial: str | None,
-        legal_accepted_at: str | None,
+        legal_accepted_at: OptionalNullable[str],
         expected: int,
     ) -> None:
         """Update stores RFC3339 legal_accepted_at as epoch milliseconds and keeps it when omitted."""
