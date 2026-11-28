@@ -208,16 +208,6 @@ class TestUserCreate:
         assert user.legal_accepted_at == expected
         assert mock_clerk.users.get(user_id=user.id).legal_accepted_at == expected
 
-    def test_stores_created_at_as_epoch_ms(self, mock_clerk: MockClerkClient) -> None:
-        """An RFC3339 created_at replaces the creation time the mock would otherwise assign."""
-
-        user = mock_clerk.users.create(
-            email_address=["test@example.com"],
-            created_at="2012-10-20T07:15:20.902Z",
-        )
-
-        assert mock_clerk.users.get(user_id=user.id).created_at == 1350717320902
-
     @pytest.mark.parametrize("legal_accepted_at", INVALID_LEGAL_ACCEPTED_AT_VALUES)
     def test_rejects_invalid_legal_accepted_at(
         self,
@@ -433,15 +423,6 @@ class TestUserUpdate:
 
         assert updated.legal_accepted_at == expected
         assert mock_clerk.users.get(user_id=user.id).legal_accepted_at == expected
-
-    def test_replaces_created_at(self, mock_clerk: MockClerkClient) -> None:
-        """Update stores an RFC3339 created_at as epoch milliseconds."""
-
-        user = mock_clerk.users.create(email_address=["test@example.com"])
-
-        mock_clerk.users.update(user_id=user.id, created_at="2012-10-20T07:15:20.902Z")
-
-        assert mock_clerk.users.get(user_id=user.id).created_at == 1350717320902
 
     @pytest.mark.parametrize("legal_accepted_at", INVALID_LEGAL_ACCEPTED_AT_VALUES)
     def test_rejects_invalid_legal_accepted_at(

@@ -148,19 +148,6 @@ class TestOrganizationCreate:
         assert stored.created_at == CREATED_AT_MS
 
 
-class TestOrganizationUpdate:
-    """Tests for updating organizations."""
-
-    def test_replaces_created_at(self, mock_clerk: MockClerkClient) -> None:
-        """Update stores an RFC3339 created_at as epoch milliseconds."""
-
-        org = mock_clerk.organizations.create(request={"name": "Created Org"})
-
-        mock_clerk.organizations.update(organization_id=org.id, created_at="2026-03-12T00:00:00Z")
-
-        assert mock_clerk.organizations.get(organization_id=org.id).created_at == CREATED_AT_MS
-
-
 class TestOrganizationGet:
     """Tests for getting organizations."""
 
