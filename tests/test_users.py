@@ -3,9 +3,9 @@ from clerk_backend_api.models import Action, ClerkErrors, GetUserListRequest, Ge
 from clerk_backend_api.types import UNSET
 
 from pytest_clerk_mock.client import MockClerkClient
+from pytest_clerk_mock.services.users import INVALID_FORMAT_ERROR_CODE
 
 RESOURCE_NOT_FOUND_CODE = "resource_not_found"
-INVALID_FORMAT_CODE = "form_param_format_invalid"
 INVALID_LEGAL_ACCEPTED_AT_VALUES = (
     "2012-10-20",
     "2012-10-20T07:15:20",
@@ -71,7 +71,7 @@ def _assert_invalid_format(exc: ClerkErrors) -> None:
 
     errors = exc.data.errors
     assert len(errors) == 1
-    assert errors[0].code == INVALID_FORMAT_CODE
+    assert errors[0].code == INVALID_FORMAT_ERROR_CODE
 
 
 def _assert_resource_not_found(exc: ClerkErrors, *, user_id: str | None = None) -> None:
@@ -192,7 +192,7 @@ class TestUserCreate:
             ("2012-10-20T07:15:20.902999Z", 1350717320902),
         ],
     )
-    def test_create_user_stores_legal_accepted_at_as_epoch_ms(
+    def test_stores_legal_accepted_at_as_epoch_ms(
         self,
         mock_clerk: MockClerkClient,
         legal_accepted_at: str | None,
@@ -209,7 +209,7 @@ class TestUserCreate:
         assert mock_clerk.users.get(user_id=user.id).legal_accepted_at == expected
 
     @pytest.mark.parametrize("legal_accepted_at", INVALID_LEGAL_ACCEPTED_AT_VALUES)
-    def test_create_user_rejects_invalid_legal_accepted_at(
+    def test_rejects_invalid_legal_accepted_at(
         self,
         mock_clerk: MockClerkClient,
         legal_accepted_at: str,
@@ -408,7 +408,7 @@ class TestUserUpdate:
             ("2012-10-20T07:15:20.902Z", None, 1350717320902),
         ],
     )
-    def test_update_legal_accepted_at(
+    def test_replaces_or_keeps_legal_accepted_at(
         self,
         mock_clerk: MockClerkClient,
         initial: str | None,
@@ -425,7 +425,7 @@ class TestUserUpdate:
         assert mock_clerk.users.get(user_id=user.id).legal_accepted_at == expected
 
     @pytest.mark.parametrize("legal_accepted_at", INVALID_LEGAL_ACCEPTED_AT_VALUES)
-    def test_update_rejects_invalid_legal_accepted_at(
+    def test_rejects_invalid_legal_accepted_at(
         self,
         mock_clerk: MockClerkClient,
         legal_accepted_at: str,
@@ -620,7 +620,7 @@ class TestAsyncAPI:
 
         assert updated.first_name == "Jane"
 
-    async def test_async_create_and_update_store_legal_accepted_at(self, mock_clerk: MockClerkClient) -> None:
+    async def test_create_and_update_store_legal_accepted_at(self, mock_clerk: MockClerkClient) -> None:
         """Async create and update pass legal_accepted_at through as epoch milliseconds."""
 
         user = await mock_clerk.users.create_async(
