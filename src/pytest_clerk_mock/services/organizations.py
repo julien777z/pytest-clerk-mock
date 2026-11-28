@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Callable, Final, Iterable, List, Mapping, Tuple
 
@@ -20,6 +19,7 @@ from pytest_clerk_mock.utils import (
     generate_clerk_id,
     get_request_value,
     resolve_optional_nullable,
+    rfc3339_to_epoch_ms,
 )
 
 RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
@@ -47,9 +47,7 @@ def _resolve_created_at(created_at: OptionalNullable[str]) -> int | None:
     if resolved_created_at is None:
         return None
 
-    normalized_created_at = resolved_created_at.replace("Z", "+00:00")
-
-    return int(datetime.fromisoformat(normalized_created_at).timestamp() * 1000)
+    return rfc3339_to_epoch_ms(resolved_created_at)
 
 
 def _build_organization_with_logo(

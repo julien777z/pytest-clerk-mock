@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Callable, Final, Iterable, List, Mapping, Tuple
 
@@ -27,6 +25,7 @@ from pytest_clerk_mock.utils import (
     generate_clerk_id,
     get_request_value,
     resolve_optional_nullable,
+    rfc3339_to_epoch_ms,
 )
 
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
@@ -36,10 +35,6 @@ EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
 INVALID_FORMAT_ERROR_CODE: Final[str] = "form_param_format_invalid"
 LEGAL_ACCEPTED_AT_INVALID_RESPONSE_TEXT: Final[str] = "legal_accepted_at must be an RFC3339 timestamp."
-RFC3339_TIMESTAMP_PATTERN: Final[re.Pattern[str]] = re.compile(
-    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})"
-)
-UNIX_EPOCH: Final[datetime] = datetime(1970, 1, 1, tzinfo=UTC)
 DEFAULT_CURRENCY: Final[str] = "usd"
 DEFAULT_GET_USER_LIST_REQUEST: Final[models.GetUserListRequest] = models.GetUserListRequest()
 DEFAULT_GET_USERS_COUNT_REQUEST: Final[models.GetUsersCountRequest] = models.GetUsersCountRequest()
@@ -86,15 +81,10 @@ def _parse_legal_accepted_at(value: OptionalNullable[str]) -> int | None:
     if timestamp is None:
         return None
 
-    if RFC3339_TIMESTAMP_PATTERN.fullmatch(timestamp) is None:
-        raise _create_invalid_legal_accepted_at_error(timestamp)
-
     try:
-        accepted_at = datetime.fromisoformat(timestamp)
+        return rfc3339_to_epoch_ms(timestamp)
     except ValueError as error:
         raise _create_invalid_legal_accepted_at_error(timestamp) from error
-
-    return (accepted_at - UNIX_EPOCH) // timedelta(milliseconds=1)
 
 
 def _build_oauth_access_token(*, user_id: str, provider: str) -> models.OAuthAccessToken:

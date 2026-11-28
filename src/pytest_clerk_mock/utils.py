@@ -1,6 +1,7 @@
+import re
 import secrets
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final, Generator, TypeVar
 from unittest.mock import MagicMock, patch
@@ -18,6 +19,11 @@ from pytest_clerk_mock.models.user import MockClerkUserResponse
 EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
 DEFAULT_ERROR_TEXT: Final[str] = "Mock error"
 DEFAULT_ERROR_CODE: Final[str] = "mock_error"
+RFC3339_TIMESTAMP_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})"
+)
+
+UNIX_EPOCH: Final[datetime] = datetime(1970, 1, 1, tzinfo=UTC)
 
 RequestValueT = TypeVar("RequestValueT")
 
@@ -179,6 +185,15 @@ def resolve_optional_nullable(value: OptionalNullable[RequestValueT]) -> Request
         return None
 
     return value
+
+
+def rfc3339_to_epoch_ms(timestamp: str) -> int:
+    """Convert an RFC3339 timestamp into the epoch milliseconds Clerk returns, or raise ValueError."""
+
+    if RFC3339_TIMESTAMP_PATTERN.fullmatch(timestamp) is None:
+        raise ValueError(f"Not an RFC3339 timestamp: {timestamp}")
+
+    return (datetime.fromisoformat(timestamp) - UNIX_EPOCH) // timedelta(milliseconds=1)
 
 
 def get_request_value(request: object, key: str, default: Any = None) -> Any:
