@@ -3,9 +3,8 @@ from clerk_backend_api.models import Action, ClerkErrors, GetUserListRequest, Ge
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.client import MockClerkClient
-from pytest_clerk_mock.utils import INVALID_FORMAT_ERROR_CODE
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 
-RESOURCE_NOT_FOUND_CODE = "resource_not_found"
 INVALID_LEGAL_ACCEPTED_AT_VALUES = (
     "2012-10-20",
     "2012-10-20T07:15:20",
@@ -66,12 +65,12 @@ class _UserListRequest:
         self.order_by = order_by
 
 
-def _assert_invalid_format(exc: ClerkErrors) -> None:
+def assert_invalid_format(exc: ClerkErrors) -> None:
     """Assert ClerkErrors contains a single form_param_format_invalid error."""
 
     errors = exc.data.errors
     assert len(errors) == 1
-    assert errors[0].code == INVALID_FORMAT_ERROR_CODE
+    assert errors[0].code == ClerkErrorCode.INVALID_FORMAT
 
 
 def _assert_resource_not_found(exc: ClerkErrors, *, user_id: str | None = None) -> None:
@@ -79,7 +78,7 @@ def _assert_resource_not_found(exc: ClerkErrors, *, user_id: str | None = None) 
 
     errors = exc.data.errors
     assert len(errors) == 1
-    assert errors[0].code == RESOURCE_NOT_FOUND_CODE
+    assert errors[0].code == ClerkErrorCode.RESOURCE_NOT_FOUND
 
     if user_id is not None:
         assert errors[0].message == f"User not found: {user_id}"
@@ -179,7 +178,7 @@ class TestUserCreate:
 
         errors = exc_info.value.data.errors
         assert len(errors) == 1
-        assert errors[0].code == "form_identifier_exists"
+        assert errors[0].code == ClerkErrorCode.EMAIL_EXISTS
 
     @pytest.mark.parametrize(
         ("legal_accepted_at", "expected"),
@@ -222,7 +221,8 @@ class TestUserCreate:
                 legal_accepted_at=legal_accepted_at,
             )
 
-        _assert_invalid_format(exc_info.value)
+        assert_invalid_format(exc_info.value)
+
         assert mock_clerk.users.count().total_count == 0
         assert mock_clerk.users.create(email_address=["test@example.com"]).id.startswith("user_")
 
@@ -441,7 +441,8 @@ class TestUserUpdate:
         with pytest.raises(ClerkErrors) as exc_info:
             mock_clerk.users.update(user_id=user.id, first_name="Jane", legal_accepted_at=legal_accepted_at)
 
-        _assert_invalid_format(exc_info.value)
+        assert_invalid_format(exc_info.value)
+
         stored = mock_clerk.users.get(user_id=user.id)
         assert stored.first_name == "John"
         assert stored.legal_accepted_at == 1350717320902

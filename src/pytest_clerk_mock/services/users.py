@@ -10,6 +10,7 @@ from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.verifytotpop import CodeType
 from clerk_backend_api.types import UNSET, OptionalNullable
 
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import (
     MockEmailAddress,
@@ -28,8 +29,6 @@ from pytest_clerk_mock.utils import (
     resolve_rfc3339_epoch_ms,
 )
 
-EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
-RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
@@ -44,7 +43,7 @@ def _create_email_exists_error(email: str) -> ClerkErrors:
     return create_clerk_error(
         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
         response_text=EMAIL_EXISTS_RESPONSE_TEXT,
-        code=EMAIL_EXISTS_ERROR_CODE,
+        code=ClerkErrorCode.EMAIL_EXISTS,
         message=EMAIL_EXISTS_MESSAGE,
     )
 
@@ -55,7 +54,7 @@ def _create_user_not_found_error(user_id: str) -> ClerkErrors:
     return create_clerk_error(
         status_code=HTTPStatus.NOT_FOUND,
         response_text=USER_NOT_FOUND_RESPONSE_TEXT,
-        code=RESOURCE_NOT_FOUND_ERROR_CODE,
+        code=ClerkErrorCode.RESOURCE_NOT_FOUND,
         message=f"User not found: {user_id}",
     )
 
@@ -228,6 +227,7 @@ class MockUsersClient:
                     raise _create_email_exists_error(email)
 
         legal_accepted_at_ms = resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at")
+
         user_id = generate_clerk_id("user")
         email_objects: list[MockEmailAddress] = []
         primary_email_id: str | None = None

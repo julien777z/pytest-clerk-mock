@@ -9,6 +9,7 @@ from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 from pytest_clerk_mock.models.organization import MockOrganization, MockOrganizationsResponse
 from pytest_clerk_mock.utils import (
     build_commerce_credit_balance_response,
@@ -22,7 +23,6 @@ from pytest_clerk_mock.utils import (
     resolve_rfc3339_epoch_ms,
 )
 
-RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 ORGANIZATION_NOT_FOUND_RESPONSE_TEXT: Final[str] = "Organization not found."
 DEFAULT_MAX_ALLOWED_MEMBERSHIPS: Final[int] = 0
 DEFAULT_CURRENCY: Final[str] = "usd"
@@ -85,7 +85,7 @@ class MockOrganizationsClient:
         if organization_id not in self._organizations:
             raise create_clerk_error(
                 status_code=HTTPStatus.NOT_FOUND,
-                code=RESOURCE_NOT_FOUND_ERROR_CODE,
+                code=ClerkErrorCode.RESOURCE_NOT_FOUND,
                 message=f"Organization not found: {organization_id}",
                 response_text=ORGANIZATION_NOT_FOUND_RESPONSE_TEXT,
             )
@@ -167,6 +167,7 @@ class MockOrganizationsClient:
             get_request_value(request_payload, "created_at", UNSET),
             field="created_at",
         )
+
         resolved_max_allowed_memberships = resolve_optional_nullable(
             get_request_value(request_payload, "max_allowed_memberships", UNSET)
         )

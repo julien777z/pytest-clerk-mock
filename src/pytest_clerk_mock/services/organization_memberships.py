@@ -8,6 +8,7 @@ from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.types import UNSET, OptionalNullable
 
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 from pytest_clerk_mock.models.organization import (
     MockOrganizationMembership,
     MockOrganizationMembershipsResponse,
@@ -15,7 +16,6 @@ from pytest_clerk_mock.models.organization import (
 from pytest_clerk_mock.utils import build_http_response, create_clerk_error, generate_clerk_id
 
 DEFAULT_LIST_LIMIT = 10
-RESOURCE_NOT_FOUND_ERROR_CODE = "resource_not_found"
 MEMBERSHIP_NOT_FOUND_RESPONSE_TEXT = "Organization membership not found."
 
 
@@ -25,7 +25,7 @@ def _create_membership_not_found_error(organization_id: str, user_id: str) -> Cl
     return create_clerk_error(
         status_code=404,
         response_text=MEMBERSHIP_NOT_FOUND_RESPONSE_TEXT,
-        code=RESOURCE_NOT_FOUND_ERROR_CODE,
+        code=ClerkErrorCode.RESOURCE_NOT_FOUND,
         message=f"Organization membership not found: {organization_id}:{user_id}",
     )
 

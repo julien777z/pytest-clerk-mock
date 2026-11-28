@@ -14,12 +14,10 @@ from clerk_backend_api.models.clerkerrors import ClerkErrorsData
 from clerk_backend_api.models.commercecreditbalanceresponse import Balance
 from clerk_backend_api.types import UNSET, OptionalNullable
 
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 from pytest_clerk_mock.models.user import MockClerkUserResponse
 
-EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
 DEFAULT_ERROR_TEXT: Final[str] = "Mock error"
-DEFAULT_ERROR_CODE: Final[str] = "mock_error"
-INVALID_FORMAT_ERROR_CODE: Final[str] = "form_param_format_invalid"
 RFC3339_TIMESTAMP_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})"
 )
@@ -95,7 +93,7 @@ def create_clerk_errors(data: object | None = None) -> ClerkErrors:
 
     return create_clerk_error(
         status_code=HTTPStatus.BAD_REQUEST,
-        code=DEFAULT_ERROR_CODE,
+        code=ClerkErrorCode.MOCK_ERROR,
         message=DEFAULT_ERROR_TEXT,
         response_text=DEFAULT_ERROR_TEXT,
     )
@@ -188,13 +186,13 @@ def resolve_optional_nullable(value: OptionalNullable[RequestValueT]) -> Request
     return value
 
 
-def _create_invalid_timestamp_error(*, field: str, timestamp: str) -> ClerkErrors:
+def create_invalid_timestamp_error(*, field: str, timestamp: str) -> ClerkErrors:
     """Create the ClerkErrors exception Clerk returns for a timestamp parameter that is not RFC3339."""
 
     return create_clerk_error(
         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
         response_text=f"{field} must be an RFC3339 timestamp.",
-        code=INVALID_FORMAT_ERROR_CODE,
+        code=ClerkErrorCode.INVALID_FORMAT,
         message=f"{field} is not a valid RFC3339 timestamp: {timestamp}",
     )
 
@@ -208,12 +206,12 @@ def resolve_rfc3339_epoch_ms(value: OptionalNullable[str], *, field: str) -> int
         return None
 
     if RFC3339_TIMESTAMP_PATTERN.fullmatch(timestamp) is None:
-        raise _create_invalid_timestamp_error(field=field, timestamp=timestamp)
+        raise create_invalid_timestamp_error(field=field, timestamp=timestamp)
 
     try:
         parsed = datetime.fromisoformat(timestamp)
     except ValueError as error:
-        raise _create_invalid_timestamp_error(field=field, timestamp=timestamp) from error
+        raise create_invalid_timestamp_error(field=field, timestamp=timestamp) from error
 
     return (parsed - UNIX_EPOCH) // timedelta(milliseconds=1)
 
@@ -269,7 +267,7 @@ def mock_clerk_user_exists(
 
     email_exists_error = create_clerk_error(
         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-        code=EMAIL_EXISTS_ERROR_CODE,
+        code=ClerkErrorCode.EMAIL_EXISTS,
         message="That email address is taken. Please try another.",
         response_text="That email address is taken.",
     )
