@@ -292,7 +292,7 @@ class MockOrganizationsClient:
     ) -> models.Organization:
         """Update an organization by ID."""
 
-        _ = admin_delete_enabled, created_at, retries, server_url, timeout_ms, http_headers
+        _ = admin_delete_enabled, retries, server_url, timeout_ms, http_headers
         organization = self.get(
             organization_id=organization_id,
             retries=retries,
@@ -305,6 +305,7 @@ class MockOrganizationsClient:
             "slug": resolve_optional_nullable(slug),
             "max_allowed_memberships": resolve_optional_nullable(max_allowed_memberships),
             "role_set_key": resolve_optional_nullable(role_set_key),
+            "created_at": resolve_rfc3339_epoch_ms(created_at, field="created_at"),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}
         updated_organization = organization.model_copy(update=update_data)

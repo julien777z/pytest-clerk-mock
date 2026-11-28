@@ -211,7 +211,6 @@ class MockUsersClient:
             backup_codes,
             skip_legal_checks,
             skip_user_requirement,
-            created_at,
             bypass_client_trust,
             retries,
             server_url,
@@ -228,6 +227,7 @@ class MockUsersClient:
                     raise _create_email_exists_error(email)
 
         legal_accepted_at_ms = resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at")
+        created_at_ms = resolve_rfc3339_epoch_ms(created_at, field="created_at")
         user_id = generate_clerk_id("user")
         email_objects: list[MockEmailAddress] = []
         primary_email_id: str | None = None
@@ -277,6 +277,9 @@ class MockUsersClient:
             banned=resolve_optional_nullable(banned) or False,
             locked=resolve_optional_nullable(locked) or False,
         )
+
+        if created_at_ms is not None:
+            user = user.model_copy(update={"created_at": created_at_ms})
 
         self._users[user_id] = user
 
@@ -517,7 +520,6 @@ class MockUsersClient:
             totp_secret,
             backup_codes,
             skip_legal_checks,
-            created_at,
             bypass_client_trust,
             retries,
             server_url,
@@ -538,6 +540,7 @@ class MockUsersClient:
             "create_organization_enabled": resolve_optional_nullable(create_organization_enabled),
             "create_organizations_limit": resolve_optional_nullable(create_organizations_limit),
             "legal_accepted_at": resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at"),
+            "created_at": resolve_rfc3339_epoch_ms(created_at, field="created_at"),
             "bypass_client_trust": resolve_optional_nullable(bypass_client_trust),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}
