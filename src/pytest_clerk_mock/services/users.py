@@ -10,6 +10,7 @@ from clerk_backend_api.models import ClerkErrors
 from clerk_backend_api.models.verifytotpop import CodeType
 from clerk_backend_api.types import UNSET, OptionalNullable
 
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 from pytest_clerk_mock.models.organization import MockOrganizationMembershipsResponse
 from pytest_clerk_mock.models.user import (
     MockEmailAddress,
@@ -25,10 +26,9 @@ from pytest_clerk_mock.utils import (
     generate_clerk_id,
     get_request_value,
     resolve_optional_nullable,
+    resolve_rfc3339_epoch_ms,
 )
 
-EMAIL_EXISTS_ERROR_CODE: Final[str] = "form_identifier_exists"
-RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 EMAIL_EXISTS_MESSAGE: Final[str] = "That email address is taken. Please try another."
 EMAIL_EXISTS_RESPONSE_TEXT: Final[str] = "That email address is taken."
 USER_NOT_FOUND_RESPONSE_TEXT: Final[str] = "User not found."
@@ -43,7 +43,7 @@ def _create_email_exists_error(email: str) -> ClerkErrors:
     return create_clerk_error(
         status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
         response_text=EMAIL_EXISTS_RESPONSE_TEXT,
-        code=EMAIL_EXISTS_ERROR_CODE,
+        code=ClerkErrorCode.EMAIL_EXISTS,
         message=EMAIL_EXISTS_MESSAGE,
     )
 
@@ -54,7 +54,7 @@ def _create_user_not_found_error(user_id: str) -> ClerkErrors:
     return create_clerk_error(
         status_code=HTTPStatus.NOT_FOUND,
         response_text=USER_NOT_FOUND_RESPONSE_TEXT,
-        code=RESOURCE_NOT_FOUND_ERROR_CODE,
+        code=ClerkErrorCode.RESOURCE_NOT_FOUND,
         message=f"User not found: {user_id}",
     )
 
@@ -208,7 +208,6 @@ class MockUsersClient:
             skip_password_requirement,
             totp_secret,
             backup_codes,
-            legal_accepted_at,
             skip_legal_checks,
             skip_user_requirement,
             created_at,
@@ -226,6 +225,8 @@ class MockUsersClient:
             for email in email_address:
                 if email.lower() in self._emails:
                     raise _create_email_exists_error(email)
+
+        legal_accepted_at_ms = resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at")
 
         user_id = generate_clerk_id("user")
         email_objects: list[MockEmailAddress] = []
@@ -271,6 +272,7 @@ class MockUsersClient:
             delete_self_enabled=resolve_optional_nullable(delete_self_enabled) or True,
             create_organization_enabled=resolve_optional_nullable(create_organization_enabled) or True,
             create_organizations_limit=resolve_optional_nullable(create_organizations_limit),
+            legal_accepted_at=legal_accepted_at_ms,
             bypass_client_trust=resolve_optional_nullable(bypass_client_trust) or False,
             banned=resolve_optional_nullable(banned) or False,
             locked=resolve_optional_nullable(locked) or False,
@@ -514,7 +516,6 @@ class MockUsersClient:
             sign_out_of_other_sessions,
             totp_secret,
             backup_codes,
-            legal_accepted_at,
             skip_legal_checks,
             created_at,
             bypass_client_trust,
@@ -536,6 +537,7 @@ class MockUsersClient:
             "delete_self_enabled": resolve_optional_nullable(delete_self_enabled),
             "create_organization_enabled": resolve_optional_nullable(create_organization_enabled),
             "create_organizations_limit": resolve_optional_nullable(create_organizations_limit),
+            "legal_accepted_at": resolve_rfc3339_epoch_ms(legal_accepted_at, field="legal_accepted_at"),
             "bypass_client_trust": resolve_optional_nullable(bypass_client_trust),
         }
         update_data = {key: value for key, value in update_data.items() if value is not None}

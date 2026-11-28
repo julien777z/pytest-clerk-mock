@@ -7,6 +7,7 @@ from pytest_clerk_mock import (
     MockClerkUser,
     mock_clerk_backend,
 )
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 
 
 class TestAuthenticateRequest:
@@ -257,7 +258,7 @@ class TestClerkErrorsOnDuplicateEmail:
 
         errors = exc_info.value.data.errors
         assert len(errors) == 1
-        assert errors[0].code == "form_identifier_exists"
+        assert errors[0].code == ClerkErrorCode.EMAIL_EXISTS
 
     async def test_duplicate_email_raises_clerk_errors_async(self, mock_clerk: MockClerkClient) -> None:
         """Async create also raises ClerkErrors for duplicate email."""

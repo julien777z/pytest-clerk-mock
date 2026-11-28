@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from http import HTTPStatus
 from typing import Any, Callable, Final, Iterable, List, Mapping, Tuple
 
@@ -10,6 +9,7 @@ from clerk_backend_api._hooks.types import HookContext
 from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.interfaces.organization_requests import MetadataDict
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 from pytest_clerk_mock.models.organization import MockOrganization, MockOrganizationsResponse
 from pytest_clerk_mock.utils import (
     build_commerce_credit_balance_response,
@@ -20,9 +20,9 @@ from pytest_clerk_mock.utils import (
     generate_clerk_id,
     get_request_value,
     resolve_optional_nullable,
+    resolve_rfc3339_epoch_ms,
 )
 
-RESOURCE_NOT_FOUND_ERROR_CODE: Final[str] = "resource_not_found"
 ORGANIZATION_NOT_FOUND_RESPONSE_TEXT: Final[str] = "Organization not found."
 DEFAULT_MAX_ALLOWED_MEMBERSHIPS: Final[int] = 0
 DEFAULT_CURRENCY: Final[str] = "usd"
@@ -38,18 +38,6 @@ def _resolve_metadata(
         return None
 
     return dict(resolved_metadata)
-
-
-def _resolve_created_at(created_at: OptionalNullable[str]) -> int | None:
-    """Convert Clerk created_at strings into epoch milliseconds."""
-
-    resolved_created_at = resolve_optional_nullable(created_at)
-    if resolved_created_at is None:
-        return None
-
-    normalized_created_at = resolved_created_at.replace("Z", "+00:00")
-
-    return int(datetime.fromisoformat(normalized_created_at).timestamp() * 1000)
 
 
 def _build_organization_with_logo(
@@ -97,7 +85,7 @@ class MockOrganizationsClient:
         if organization_id not in self._organizations:
             raise create_clerk_error(
                 status_code=HTTPStatus.NOT_FOUND,
-                code=RESOURCE_NOT_FOUND_ERROR_CODE,
+                code=ClerkErrorCode.RESOURCE_NOT_FOUND,
                 message=f"Organization not found: {organization_id}",
                 response_text=ORGANIZATION_NOT_FOUND_RESPONSE_TEXT,
             )
@@ -175,7 +163,11 @@ class MockOrganizationsClient:
         resolved_private_metadata = _resolve_metadata(
             get_request_value(request_payload, "private_metadata", UNSET)
         )
-        resolved_created_at = _resolve_created_at(get_request_value(request_payload, "created_at", UNSET))
+        resolved_created_at = resolve_rfc3339_epoch_ms(
+            get_request_value(request_payload, "created_at", UNSET),
+            field="created_at",
+        )
+
         resolved_max_allowed_memberships = resolve_optional_nullable(
             get_request_value(request_payload, "max_allowed_memberships", UNSET)
         )

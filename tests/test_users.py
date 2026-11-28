@@ -1,9 +1,17 @@
 import pytest
 from clerk_backend_api.models import Action, ClerkErrors, GetUserListRequest, GetUsersCountRequest
+from clerk_backend_api.types import UNSET, OptionalNullable
 
 from pytest_clerk_mock.client import MockClerkClient
+from pytest_clerk_mock.models.errors import ClerkErrorCode
 
-RESOURCE_NOT_FOUND_CODE = "resource_not_found"
+INVALID_LEGAL_ACCEPTED_AT_VALUES = (
+    "2012-10-20",
+    "2012-10-20T07:15:20",
+    "2012-10-20 07:15:20Z",
+    "2012-13-20T07:15:20Z",
+    "not-a-timestamp",
+)
 
 
 class _UserListRequest:
@@ -57,12 +65,20 @@ class _UserListRequest:
         self.order_by = order_by
 
 
+def assert_invalid_format(exc: ClerkErrors) -> None:
+    """Assert ClerkErrors contains a single form_param_format_invalid error."""
+
+    errors = exc.data.errors
+    assert len(errors) == 1
+    assert errors[0].code == ClerkErrorCode.INVALID_FORMAT
+
+
 def _assert_resource_not_found(exc: ClerkErrors, *, user_id: str | None = None) -> None:
     """Assert ClerkErrors contains a single resource_not_found error."""
 
     errors = exc.data.errors
     assert len(errors) == 1
-    assert errors[0].code == RESOURCE_NOT_FOUND_CODE
+    assert errors[0].code == ClerkErrorCode.RESOURCE_NOT_FOUND
 
     if user_id is not None:
         assert errors[0].message == f"User not found: {user_id}"
@@ -162,7 +178,53 @@ class TestUserCreate:
 
         errors = exc_info.value.data.errors
         assert len(errors) == 1
-        assert errors[0].code == "form_identifier_exists"
+        assert errors[0].code == ClerkErrorCode.EMAIL_EXISTS
+
+    @pytest.mark.parametrize(
+        ("legal_accepted_at", "expected"),
+        [
+            (UNSET, None),
+            (None, None),
+            ("2012-10-20T07:15:20.902Z", 1350717320902),
+            ("2012-10-20T07:15:20Z", 1350717320000),
+            ("2012-10-20T09:15:20.902+02:00", 1350717320902),
+            ("2012-10-20T07:15:20.902999Z", 1350717320902),
+        ],
+    )
+    def test_stores_legal_accepted_at_as_epoch_ms(
+        self,
+        mock_clerk: MockClerkClient,
+        legal_accepted_at: OptionalNullable[str],
+        expected: int | None,
+    ) -> None:
+        """RFC3339 legal_accepted_at is stored as epoch milliseconds, like the Clerk User model."""
+
+        user = mock_clerk.users.create(
+            email_address=["test@example.com"],
+            legal_accepted_at=legal_accepted_at,
+        )
+
+        assert user.legal_accepted_at == expected
+        assert mock_clerk.users.get(user_id=user.id).legal_accepted_at == expected
+
+    @pytest.mark.parametrize("legal_accepted_at", INVALID_LEGAL_ACCEPTED_AT_VALUES)
+    def test_rejects_invalid_legal_accepted_at(
+        self,
+        mock_clerk: MockClerkClient,
+        legal_accepted_at: str,
+    ) -> None:
+        """A non-RFC3339 legal_accepted_at raises ClerkErrors and creates no user."""
+
+        with pytest.raises(ClerkErrors) as exc_info:
+            mock_clerk.users.create(
+                email_address=["test@example.com"],
+                legal_accepted_at=legal_accepted_at,
+            )
+
+        assert_invalid_format(exc_info.value)
+
+        assert mock_clerk.users.count().total_count == 0
+        assert mock_clerk.users.create(email_address=["test@example.com"]).id.startswith("user_")
 
     def test_create_user_duplicate_email_case_insensitive(self, mock_clerk: MockClerkClient) -> None:
         """Email uniqueness check is case insensitive."""
@@ -337,6 +399,54 @@ class TestUserUpdate:
 
         assert updated.public_metadata == {"role": "admin"}
 
+    @pytest.mark.parametrize(
+        ("initial", "legal_accepted_at", "expected"),
+        [
+            (None, "2012-10-20T07:15:20.902Z", 1350717320902),
+            ("2012-10-20T07:15:20.902Z", "2013-01-01T00:00:00+01:00", 1356994800000),
+            ("2012-10-20T07:15:20.902Z", UNSET, 1350717320902),
+            ("2012-10-20T07:15:20.902Z", None, 1350717320902),
+        ],
+    )
+    def test_replaces_or_keeps_legal_accepted_at(
+        self,
+        mock_clerk: MockClerkClient,
+        initial: str | None,
+        legal_accepted_at: OptionalNullable[str],
+        expected: int,
+    ) -> None:
+        """Update stores RFC3339 legal_accepted_at as epoch milliseconds and keeps it when omitted."""
+
+        user = mock_clerk.users.create(email_address=["test@example.com"], legal_accepted_at=initial)
+
+        updated = mock_clerk.users.update(user_id=user.id, legal_accepted_at=legal_accepted_at)
+
+        assert updated.legal_accepted_at == expected
+        assert mock_clerk.users.get(user_id=user.id).legal_accepted_at == expected
+
+    @pytest.mark.parametrize("legal_accepted_at", INVALID_LEGAL_ACCEPTED_AT_VALUES)
+    def test_rejects_invalid_legal_accepted_at(
+        self,
+        mock_clerk: MockClerkClient,
+        legal_accepted_at: str,
+    ) -> None:
+        """A non-RFC3339 legal_accepted_at raises ClerkErrors and leaves the user unchanged."""
+
+        user = mock_clerk.users.create(
+            email_address=["test@example.com"],
+            first_name="John",
+            legal_accepted_at="2012-10-20T07:15:20.902Z",
+        )
+
+        with pytest.raises(ClerkErrors) as exc_info:
+            mock_clerk.users.update(user_id=user.id, first_name="Jane", legal_accepted_at=legal_accepted_at)
+
+        assert_invalid_format(exc_info.value)
+
+        stored = mock_clerk.users.get(user_id=user.id)
+        assert stored.first_name == "John"
+        assert stored.legal_accepted_at == 1350717320902
+
     def test_update_user_not_found(self, mock_clerk: MockClerkClient) -> None:
         """Update nonexistent user raises ClerkErrors."""
 
@@ -510,6 +620,23 @@ class TestAsyncAPI:
         updated = await mock_clerk.users.update_async(user_id=user.id, first_name="Jane")
 
         assert updated.first_name == "Jane"
+
+    async def test_create_and_update_store_legal_accepted_at(self, mock_clerk: MockClerkClient) -> None:
+        """Async create and update pass legal_accepted_at through as epoch milliseconds."""
+
+        user = await mock_clerk.users.create_async(
+            email_address=["test@example.com"],
+            legal_accepted_at="2012-10-20T07:15:20.902Z",
+        )
+
+        assert user.legal_accepted_at == 1350717320902
+
+        updated = await mock_clerk.users.update_async(
+            user_id=user.id,
+            legal_accepted_at="2013-01-01T00:00:00+01:00",
+        )
+
+        assert updated.legal_accepted_at == 1356994800000
 
     async def test_update_async_not_found(self, mock_clerk: MockClerkClient) -> None:
         """Async update raises ClerkErrors for nonexistent user."""
